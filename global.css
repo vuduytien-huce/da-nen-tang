@@ -1,0 +1,18 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-primary text-white;
+  }
+}
+
+/* Custom transitions and premium touches */
+.premium-card {
+  @apply bg-secondary rounded-2xl border border-gray-800 p-4;
+}
+
+.accent-button {
+  @apply bg-accent rounded-xl py-4 items-center justify-center;
+}
