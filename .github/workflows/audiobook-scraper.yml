@@ -2,7 +2,7 @@ name: Audiobook Metadata Scraper
 
 on:
   schedule:
-    - cron: '0 17 * * *' # Chạy vào 00:00 hàng ngày (giờ VN)
+    - cron: '0 17 * * *'
   workflow_dispatch:
     inputs:
       platform:
@@ -20,7 +20,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
 
       - name: Install dependencies
         run: npm install
