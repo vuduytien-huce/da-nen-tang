@@ -1,0 +1,55 @@
+name: Audiobook Metadata Scraper
+
+on:
+  schedule:
+    # Chạy vào 00:00 hàng ngày (giờ UTC)
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+    # Cho phép chạy thủ công từ tab Actions
+    inputs:
+      platform:
+        description: 'Platform to scrape (catalog, fonos, voizfm)'
+        required: true
+        default: 'catalog'
+        type: choice
+        options:
+          - catalog
+          - fonos
+          - voizfm
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Scraper
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          # Nếu chạy thủ công thì dùng input, nếu chạy tự động thì mặc định là 'catalog'
+          PLATFORM=${{ github.event.inputs.platform || 'catalog' }}
+          echo "Starting scraper for: $PLATFORM"
+          npx tsx scratch/metadata-scraper/run-scraper.ts $PLATFORM
+
+      - name: Archive results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scraper-results
+          path: scratch/metadata-scraper/results/
+          retention-days: 7
