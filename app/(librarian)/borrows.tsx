@@ -10,6 +10,7 @@ export default function LibrarianBorrows() {
   const { data: allBorrows, isLoading, refetch } = borrows.listAll();
   const approveMutation = borrows.approve;
   const rejectMutation = borrows.reject;
+  const returnMutation = borrows.return;
 
   const [isMounted, setIsMounted] = useState(true);
   React.useEffect(() => {
@@ -55,45 +56,89 @@ export default function LibrarianBorrows() {
     ]);
   };
 
-  const renderItem = ({ item }: { item: any }) => (
-    <View style={styles.card}>
-      <View style={styles.cardHeader}>
-        <View style={styles.bookInfo}>
-          <Text style={styles.bookTitle}>{item.book?.title}</Text>
-          <Text style={styles.userInfo}>Người mượn: {item.profiles?.full_name || 'N/A'}</Text>
-        </View>
-        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
-          <Text style={styles.statusText}>{item.status}</Text>
-        </View>
-      </View>
-      
-      <View style={styles.cardFooter}>
-        <View style={styles.dateInfo}>
-          <Ionicons name="calendar-outline" size={14} color="#5A5F7A" />
-          <Text style={styles.dateText}>
-            Ngày yêu cầu: {new Date(item.borrowed_at).toLocaleDateString('vi-VN')}
-          </Text>
+  const handleReturn = (isbn: string) => {
+    Alert.alert('Xác nhận', `Trả sách có mã ISBN: ${isbn}?`, [
+      { text: 'Hủy', style: 'cancel' },
+      {
+        text: 'Xác nhận trả',
+        onPress: async () => {
+          try {
+            const result = await returnMutation.mutateAsync(isbn);
+            if (isMounted) {
+              const msg = result.late_fine > 0 
+                ? `Đã trả sách. Tiền phạt quá hạn: ${result.late_fine.toLocaleString()} VND`
+                : 'Đã trả sách thành công.';
+              Alert.alert('Thành công', msg);
+            }
+          } catch (err: any) {
+            if (isMounted) Alert.alert('Lỗi', err.message);
+          }
+        }
+      }
+    ]);
+  };
+
+  const renderItem = ({ item }: { item: any }) => {
+    const isOverdue = item.status === 'BORROWED' && item.due_date && new Date(item.due_date) < new Date();
+    const daysLate = isOverdue ? Math.floor((new Date().getTime() - new Date(item.due_date).getTime()) / (1000 * 3600 * 24)) : 0;
+    const estFine = daysLate * 2000;
+
+    return (
+      <View style={styles.card}>
+        <View style={styles.cardHeader}>
+          <View style={styles.bookInfo}>
+            <Text style={styles.bookTitle}>{item.book?.title}</Text>
+            <Text style={styles.userInfo}>Người mượn: {item.profiles?.full_name || 'N/A'}</Text>
+            {isOverdue && (
+              <Text style={styles.overdueInfo}>
+                Quá hạn {daysLate} ngày (Phạt dự kiến: {estFine.toLocaleString()}đ)
+              </Text>
+            )}
+          </View>
+          <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
+            <Text style={styles.statusText}>{item.status}</Text>
+          </View>
         </View>
         
-        {item.status === 'PENDING' && (
-          <View style={styles.actionButtons}>
-            <TouchableOpacity 
-              style={[styles.actionBtn, styles.rejectBtn]} 
-              onPress={() => handleReject(item.id)}
-            >
-              <Ionicons name="close" size={20} color="#FF6B6B" />
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={[styles.actionBtn, styles.approveBtn]} 
-              onPress={() => handleApprove(item.id)}
-            >
-              <Ionicons name="checkmark" size={20} color="#FFFFFF" />
-            </TouchableOpacity>
+        <View style={styles.cardFooter}>
+          <View style={styles.dateInfo}>
+            <Ionicons name="calendar-outline" size={14} color="#5A5F7A" />
+            <Text style={styles.dateText}>
+              {item.status === 'PENDING' ? 'Yêu cầu: ' : 'Hạn trả: '} 
+              {new Date(item.status === 'PENDING' ? item.borrowed_at : item.due_date).toLocaleDateString('vi-VN')}
+            </Text>
           </View>
-        )}
+          
+          {item.status === 'PENDING' && (
+            <View style={styles.actionButtons}>
+              <TouchableOpacity 
+                style={[styles.actionBtn, styles.rejectBtn]} 
+                onPress={() => handleReject(item.id)}
+              >
+                <Ionicons name="close" size={20} color="#FF6B6B" />
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.actionBtn, styles.approveBtn]} 
+                onPress={() => handleApprove(item.id)}
+              >
+                <Ionicons name="checkmark" size={20} color="#FFFFFF" />
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {item.status === 'BORROWED' && (
+            <TouchableOpacity 
+              style={[styles.actionBtn, styles.returnBtn]} 
+              onPress={() => handleReturn(item.book?.isbn)}
+            >
+              <Ionicons name="arrow-back-circle-outline" size={20} color="#FFFFFF" />
+              <Text style={styles.btnText}>Trả sách</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
-    </View>
-  );
+    );
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -247,23 +292,44 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginLeft: 5,
   },
+  overdueInfo: {
+    fontSize: 12,
+    color: '#FF6B6B',
+    fontWeight: '600',
+    marginTop: 4,
+  },
   actionButtons: {
     flexDirection: 'row',
   },
+  returnBtn: {
+    backgroundColor: '#4F8EF7',
+    flexDirection: 'row',
+    paddingHorizontal: 12,
+    width: 'auto',
+    height: 36,
+  },
+  btnText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: 'bold',
+    marginLeft: 6,
+  },
   actionBtn: {
-    width: 36,
     height: 36,
     borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
     marginLeft: 10,
+    paddingHorizontal: 8,
   },
   approveBtn: {
     backgroundColor: '#10B981',
+    width: 36,
   },
   rejectBtn: {
     borderWidth: 1,
     borderColor: '#FF6B6B',
+    width: 36,
   },
   empty: {
     alignItems: 'center',

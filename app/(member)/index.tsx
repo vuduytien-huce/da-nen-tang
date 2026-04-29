@@ -1,203 +1,1221 @@
-import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Image, StyleSheet, Dimensions, SafeAreaView, StatusBar } from 'react-native';
-import { useLibrary } from '../../src/hooks/useLibrary';
-import { useAuthStore } from '../../src/store/useAuthStore';
-import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
+import React, { useState } from "react";
+import {
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  Image,
+  StyleSheet,
+  Dimensions,
+  SafeAreaView,
+  StatusBar,
+  ActivityIndicator,
+} from "react-native";
+import { useLibrary } from "../../src/hooks/useLibrary";
+import { useAuthStore } from "../../src/store/useAuthStore";
+import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
+import { LinearGradient } from "expo-linear-gradient";
+import { Audio } from "expo-av";
+import Animated, {
+  FadeIn,
+  FadeInDown,
+  FadeInUp,
+  useSharedValue,
+  useAnimatedStyle,
+  withRepeat,
+  withTiming,
+  withSequence,
+  interpolate,
+} from "react-native-reanimated";
+import { BlurView } from "expo-blur";
+import { Modal, Alert } from "react-native";
+import { haptics } from "../../src/core/haptics";
+import { ai } from "../../src/core/ai";
+import { PieChart, LineChart } from "react-native-chart-kit";
+import { NotificationCenter } from "../../src/components/NotificationCenter";
+import { OfflineCard } from "../../src/features/members/components/OfflineCard";
+import { membersService } from "../../src/features/members/members.service";
+import { BorrowRecord } from "../../src/hooks/library/types";
+import { useTranslation } from "react-i18next";
+import { AnimatedWrapper } from "../../src/components/AnimatedWrapper";
+import { sync, SyncAction } from "../../src/core/sync";
+import NetInfo from "@react-native-community/netinfo";
+import { useGamification } from "../../src/hooks/useGamification";
+import { useConnectivity } from "../../src/hooks/useConnectivity";
+import { useBroadcast } from "../../src/hooks/useBroadcast";
+import { supabase } from "../../src/api/supabase";
 
-const { width } = Dimensions.get('window');
+const { width } = Dimensions.get("window");
 
 export default function MemberHome() {
   const router = useRouter();
+  const { t } = useTranslation();
   const profile = useAuthStore((state) => state.profile);
   const logout = useAuthStore((state) => state.logout);
-  const { books, borrows } = useLibrary();
+  const { books, borrows, recommendations, feed } = useLibrary();
+  const { latestMessage, dismissLatest } = useBroadcast();
+  const { points, level, currentLevelXP, nextLevelXP } = useGamification(
+    profile?.id || "",
+  );
+  const [queueCount, setQueueCount] = useState(0);
+  const { data: recBooks, isLoading: isRecLoading } = recommendations(6);
+  const { data: feedData, isLoading: isFeedLoading } = feed.getCommunityFeed();
+
+  const [showNotifications, setShowNotifications] = useState(false);
 
   const { data: bookList } = books.list();
-  const { data: myBorrows } = borrows.list();
+  const { data: onlineBorrows, isLoading: loadingBorrows } = borrows.list();
 
-  const [activeCategory, setActiveCategory] = useState('Tất cả');
-  const categories = ['Tất cả', 'Văn học', 'Khoa học', 'Lịch sử', 'Công nghệ', 'Nghệ thuật'];
+  const [offlineBorrows, setOfflineBorrows] = useState<BorrowRecord[]>([]);
+  const [offlineBooks, setOfflineBooks] = useState<any[]>([]);
+  const { isOnline, isSyncing, triggerSync } = useConnectivity();
+  const [isOfflineCardVisible, setIsOfflineCardVisible] = useState(false);
+  const [aiRecs, setAiRecs] = useState<any[]>([]);
+  const [isAiLoading, setIsAiLoading] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const [recording, setRecording] = useState<Audio.Recording | null>(null);
+  const [aiResponse, setAiResponse] = useState<any>(null);
+  const [showAiModal, setShowAiModal] = useState(false);
+
+  React.useEffect(() => {
+    const performCheckin = async () => {
+      if (profile?.id) {
+        try {
+          const { data, error } = await supabase.rpc("daily_checkin", {
+            p_user_id: profile.id,
+          });
+          if (!error && data?.success) {
+            console.log(
+              "[Gamification] Daily Check-in Success:",
+              data.xp_awarded,
+              "XP awarded",
+            );
+            // Optionally: Show a toast or notification
+          }
+        } catch (e) {
+          console.warn("Daily checkin failed:", e);
+        }
+      }
+    };
+    performCheckin();
+  }, [profile?.id]);
+
+  React.useEffect(() => {
+    const checkOffline = async () => {
+      const cachedBorrows = await membersService.getBorrows();
+      const cachedBooks = await membersService.getBooks();
+      const queue = await membersService.getActionQueue();
+      setOfflineBorrows(cachedBorrows);
+      setOfflineBooks(cachedBooks);
+      setQueueCount(queue.length);
+    };
+    checkOffline();
+
+    // Refresh queue count periodically or on focus
+    const interval = setInterval(checkOffline, 5000);
+    return () => clearInterval(interval);
+  }, [onlineBorrows, loadingBorrows]);
+
+  // Update cache when online data arrives
+  React.useEffect(() => {
+    if (onlineBorrows && onlineBorrows.length > 0) {
+      membersService.saveBorrows(onlineBorrows);
+    }
+  }, [onlineBorrows]);
+
+  React.useEffect(() => {
+    if (bookList && bookList.length > 0) {
+      membersService.saveBooks(bookList);
+    }
+  }, [bookList]);
+
+  // Sync queue monitoring
+  React.useEffect(() => {
+    const interval = setInterval(() => {
+      setSyncQueue([...sync.getQueue()]);
+    }, 5000);
+
+    const unsubscribe = NetInfo.addEventListener((state) => {
+      setNetworkState(state);
+    });
+
+    return () => {
+      clearInterval(interval);
+      unsubscribe();
+    };
+  }, []);
+
+  // Fetch AI Recommendations (Semantic Discovery)
+  React.useEffect(() => {
+    const fetchAiRecs = async () => {
+      if (myBorrows && myBorrows.length > 0) {
+        setIsAiLoading(true);
+        try {
+          const titles = myBorrows.map((b) => b.book?.title || "");
+          const categories = Array.from(
+            new Set(
+              myBorrows.map((b) => b.book?.category || "").filter(Boolean),
+            ),
+          );
+
+          const results = await ai.getRecommendationsByProfile(
+            titles,
+            categories,
+          );
+
+          // Filter out books already borrowed
+          const borrowedIsbns = new Set(myBorrows.map((b) => b.book_isbn));
+          const filtered = results.filter(
+            (b: any) => !borrowedIsbns.has(b.isbn),
+          );
+
+          setAiRecs(filtered.slice(0, 5));
+        } catch (error) {
+          console.error("AI Recommendation fetch failed:", error);
+        } finally {
+          setIsAiLoading(false);
+        }
+      }
+    };
+    if (myBorrows) fetchAiRecs();
+  }, [myBorrows]);
+
+  const startListening = async () => {
+    try {
+      const permission = await Audio.requestPermissionsAsync();
+      if (permission.status === "granted") {
+        await Audio.setAudioModeAsync({
+          allowsRecordingIOS: true,
+          playsInSilentModeIOS: true,
+        });
+        setIsListening(true);
+        const { recording } = await Audio.Recording.createAsync(
+          Audio.RecordingOptionsPresets.HIGH_QUALITY,
+        );
+        setRecording(recording);
+
+        // Simulate voice processing after 3 seconds
+        setTimeout(async () => {
+          await stopListening(true);
+        }, 3000);
+      } else {
+        Alert.alert(
+          "Quyền truy cập",
+          "Vui lòng cho phép quyền ghi âm để sử dụng tìm kiếm giọng nói.",
+        );
+      }
+    } catch (err) {
+      console.error("Failed to start recording", err);
+    }
+  };
+
+  const stopListening = async (shouldProcess = false) => {
+    setIsListening(false);
+    if (!recording) return;
+
+    try {
+      await recording.stopAndUnloadAsync();
+      if (shouldProcess) {
+        haptics.success();
+        // Mock transcription
+        const mockPhrases = [
+          "Gợi ý sách trinh thám",
+          "Tìm sách Harry Potter",
+          "Tài khoản của tôi thế nào?",
+        ];
+        const transcript =
+          mockPhrases[Math.floor(Math.random() * mockPhrases.length)];
+
+        const result = await ai.processVoiceCommand(transcript);
+        setAiResponse(result);
+        setShowAiModal(true);
+
+        if (result.intent === "search" && result.searchQuery) {
+          // Optional: navigate to search with query
+        }
+      }
+    } catch (error) {
+      console.error("Failed to stop recording", error);
+    }
+    setRecording(null);
+  };
+
+  const myBorrows = onlineBorrows || offlineBorrows;
+  const myBooks = bookList || offlineBooks;
+
+  const timeAgo = (date: string) => {
+    const seconds = Math.floor(
+      (new Date().getTime() - new Date(date).getTime()) / 1000,
+    );
+    if (seconds < 60) return "Vừa xong";
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes} phút trước`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours} giờ trước`;
+    const days = Math.floor(hours / 24);
+    return `${days} ngày trước`;
+  };
+
+  const [activeCategory, setActiveCategory] = useState("Tất cả");
+  const categories = [
+    "Tất cả",
+    "Văn học",
+    "Khoa học",
+    "Lịch sử",
+    "Công nghệ",
+    "Nghệ thuật",
+  ];
 
   // Real-time stats & Overdue logic
-  const activeBorrowedCount = myBorrows?.filter(b => b.status === 'BORROWED').length || 0;
-  const totalFine = myBorrows?.reduce((acc, r) => acc + ((r as any).estimated_fine || 0), 0) || 0;
-  const hasOverdue = myBorrows?.some(b => b.status === 'BORROWED' && b.due_date && new Date(b.due_date) < new Date());
+  const activeBorrowedCount =
+    myBorrows?.filter((b) => b.status === "BORROWED").length || 0;
+  const totalFine =
+    myBorrows?.reduce((acc, r) => acc + ((r as any).estimated_fine || 0), 0) ||
+    0;
+  const hasOverdue = myBorrows?.some(
+    (b) =>
+      b.status === "BORROWED" &&
+      b.due_date &&
+      new Date(b.due_date) < new Date(),
+  );
 
   const featuredBooks = bookList?.slice(0, 5) || [];
 
-  const stats = [
-    { label: 'Đang mượn', value: activeBorrowedCount, icon: 'book', bgColor: '#3A75F2', flex: 1 },
-    { label: 'Tổng số sách', value: bookList?.length || 0, icon: 'library', bgColor: '#10B981', flex: 1 },
-    { label: 'Hạn mức phí', value: (totalFine > 0 ? (totalFine/1000 + 'k') : '5cuốn'), icon: 'card', bgColor: totalFine > 0 ? '#EF4444' : '#F59E0B', flex: 1 },
+  const stats = React.useMemo(
+    () => [
+      {
+        label: "Đang mượn",
+        value: activeBorrowedCount,
+        icon: "book",
+        bgColor: "#3A75F2",
+        flex: 1,
+      },
+      {
+        label: "Tổng số sách",
+        value: myBooks?.length || 0,
+        icon: "library",
+        bgColor: "#10B981",
+        flex: 1,
+      },
+      {
+        label: "Hạn mức phí",
+        value: totalFine > 0 ? totalFine / 1000 + "k" : "5cuốn",
+        icon: "card",
+        bgColor: totalFine > 0 ? "#EF4444" : "#F59E0B",
+        flex: 1,
+      },
+    ],
+    [activeBorrowedCount, myBooks?.length, totalFine],
+  );
+
+  // Logic for charts
+  const chartColors = [
+    "#3A75F2",
+    "#10B981",
+    "#F59E0B",
+    "#EF4444",
+    "#8B5CF6",
+    "#EC4899",
   ];
+  const genreData = React.useMemo(
+    () =>
+      myBorrows?.reduce((acc: any, curr: any) => {
+        const genre = curr.book?.category || "Chưa phân loại";
+        const existing = acc.find((g: any) => g.name === genre);
+        if (existing) existing.count++;
+        else
+          acc.push({
+            name: genre,
+            count: 1,
+            color: chartColors[acc.length % chartColors.length],
+            legendFontColor: "#8A8F9E",
+            legendFontSize: 11,
+          });
+        return acc;
+      }, []) || [],
+    [myBorrows],
+  );
+
+  const chartConfig = {
+    backgroundGradientFrom: "#171B2B",
+    backgroundGradientTo: "#171B2B",
+    color: (opacity = 1) => `rgba(58, 117, 242, ${opacity})`,
+    strokeWidth: 2,
+    barPercentage: 0.5,
+    useShadowColorFromDataset: false,
+    labelColor: (opacity = 1) => `rgba(138, 143, 158, ${opacity})`,
+  };
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#0F121D" />
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        
+
+      {!isOnline && (
+        <View style={styles.offlineBanner}>
+          <Ionicons name="cloud-offline-outline" size={14} color="white" />
+          <Text style={styles.offlineBannerText}>
+            Bạn đang ở chế độ ngoại tuyến
+          </Text>
+        </View>
+      )}
+
+      {queueCount > 0 && isOnline && (
+        <View style={[styles.offlineBanner, { backgroundColor: "#3A75F2" }]}>
+          <ActivityIndicator
+            size="small"
+            color="white"
+            style={{ marginRight: 8 }}
+          />
+          <Text style={styles.offlineBannerText}>
+            Đang đồng bộ {queueCount} hoạt động...
+          </Text>
+        </View>
+      )}
+
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
         {/* Header Section with Logout */}
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.welcomeText}>Xin chào, {profile?.fullName?.split(' ')[0] || 'Độc giả'}</Text>
-            <Text style={styles.nameText}>BiblioTech Member</Text>
+        <Animated.View entering={FadeIn.duration(800)} style={styles.header}>
+          {!isOnline && (
+            <TouchableOpacity
+              style={styles.offlineIndicator}
+              onPress={() => triggerSync()}
+            >
+              <Ionicons name="cloud-offline" size={14} color="#F59E0B" />
+              <Text style={styles.offlineIndicatorText}>
+                {isSyncing ? "Đang đồng bộ..." : "Offline"}
+              </Text>
+            </TouchableOpacity>
+          )}
+          <View style={styles.headerInfo}>
+            <View>
+              <Text style={styles.welcomeText}>
+                Xin chào, {profile?.fullName?.split(" ")[0] || "Độc giả"}
+              </Text>
+              <Text
+                style={styles.nameText}
+                accessibilityLabel={`BiblioTech Member: ${profile?.fullName || "Độc giả"}`}
+              >
+                BiblioTech Member
+              </Text>
+            </View>
           </View>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <TouchableOpacity onPress={() => router.push('/(member)/search')} style={styles.iconBtn}>
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            <TouchableOpacity
+              onPress={() => {
+                haptics.light();
+                setIsOfflineCardVisible(true);
+              }}
+              style={[
+                styles.iconBtn,
+                { backgroundColor: "rgba(58, 117, 242, 0.1)" },
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel="Mở thẻ thành viên"
+              accessibilityHint="Hiển thị mã QR thành viên để mượn sách tại quầy"
+            >
+              <Ionicons name="qr-code-outline" size={20} color="#3A75F2" />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => {
+                haptics.light();
+                router.push("/(member)/search" as any);
+              }}
+              style={styles.iconBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Tìm kiếm sách"
+              accessibilityHint="Tìm kiếm theo tên sách, tác giả hoặc thể loại"
+            >
               <Ionicons name="search" size={20} color="#FFFFFF" />
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => router.push('/(member)/settings')} style={[styles.iconBtn, { marginLeft: 12 }]}>
-              <Ionicons name="settings-outline" size={20} color="#FFFFFF" />
+            <TouchableOpacity
+              onPress={() => {
+                haptics.light();
+                router.push("/(member)/achievements" as any);
+              }}
+              style={[styles.iconBtn, { marginLeft: 12 }]}
+              accessibilityRole="button"
+              accessibilityLabel="Thành tựu và Cấp độ"
+              accessibilityHint={`Bạn đang ở cấp độ ${profile?.level || 1}. Nhấn để xem các huy hiệu đã đạt được.`}
+            >
+              <Ionicons name="trophy" size={20} color="#F59E0B" />
+              {profile?.level && (
+                <View style={styles.levelBadge}>
+                  <Text style={styles.levelText}>{profile.level}</Text>
+                </View>
+              )}
             </TouchableOpacity>
-            <TouchableOpacity onPress={logout} style={[styles.iconBtn, { marginLeft: 12, backgroundColor: 'rgba(255, 107, 107, 0.1)' }]}>
+            <TouchableOpacity
+              onPress={() => {
+                haptics.light();
+                router.push("/(member)/downloads" as any);
+              }}
+              style={[styles.iconBtn, { marginLeft: 12 }]}
+              accessibilityRole="button"
+              accessibilityLabel="Quản lý tải xuống"
+              accessibilityHint="Xem và quản lý các sách đã tải về thiết bị"
+            >
+              <Ionicons name="download" size={20} color="#3A75F2" />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => {
+                haptics.light();
+                router.push("/(member)/notifications" as any);
+              }}
+              style={[styles.iconBtn, { marginLeft: 12 }]}
+              accessibilityRole="button"
+              accessibilityLabel="Thông báo"
+            >
+              <Ionicons name="notifications" size={20} color="#FFFFFF" />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => router.push("/(member)/profile" as any)}
+              style={[
+                styles.iconBtn,
+                { marginLeft: 12, padding: 0, overflow: "hidden" },
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel="Trang cá nhân"
+            >
+              {profile?.avatarUrl ? (
+                <Image
+                  source={{ uri: profile.avatarUrl }}
+                  style={{ width: "100%", height: "100%" }}
+                  accessibilityLabel="Ảnh đại diện"
+                />
+              ) : (
+                <Ionicons name="person-outline" size={20} color="#FFFFFF" />
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={logout}
+              style={[
+                styles.iconBtn,
+                { marginLeft: 12, backgroundColor: "rgba(255, 107, 107, 0.1)" },
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel="Đăng xuất"
+            >
               <Ionicons name="log-out-outline" size={20} color="#FF6B6B" />
             </TouchableOpacity>
           </View>
-        </View>
+        </Animated.View>
+
+        {/* BROADCAST BANNER */}
+        {latestMessage && (
+          <Animated.View
+            entering={FadeInDown.duration(600)}
+            style={[
+              styles.broadcastBanner,
+              {
+                borderLeftColor:
+                  latestMessage.type === "warning"
+                    ? "#F59E0B"
+                    : latestMessage.type === "promotion"
+                      ? "#10B981"
+                      : "#3A75F2",
+              },
+            ]}
+          >
+            <View style={styles.broadcastIcon}>
+              <Ionicons
+                name={
+                  latestMessage.type === "warning"
+                    ? "warning"
+                    : latestMessage.type === "promotion"
+                      ? "gift"
+                      : "megaphone"
+                }
+                size={20}
+                color={
+                  latestMessage.type === "warning"
+                    ? "#F59E0B"
+                    : latestMessage.type === "promotion"
+                      ? "#10B981"
+                      : "#3A75F2"
+                }
+              />
+            </View>
+            <View style={styles.broadcastInfo}>
+              <Text style={styles.broadcastTitle}>{latestMessage.title}</Text>
+              <Text style={styles.broadcastContent} numberOfLines={2}>
+                {latestMessage.content}
+              </Text>
+            </View>
+            <TouchableOpacity
+              onPress={dismissLatest}
+              style={styles.closeBroadcast}
+            >
+              <Ionicons name="close" size={18} color="#5A5F7A" />
+            </TouchableOpacity>
+          </Animated.View>
+        )}
 
         {/* OVERDUE ALERT BANNER */}
         {(hasOverdue || totalFine > 0) && (
-          <TouchableOpacity 
-            style={styles.overdueBanner} 
-            onPress={() => router.push('/(member)/history')}
+          <TouchableOpacity
+            style={styles.overdueBanner}
+            onPress={() => router.push("/(member)/profile" as any)}
             activeOpacity={0.9}
+            accessibilityRole="alert"
+            accessibilityLabel={`Cảnh báo quá hạn: Bạn có ${totalFine.toLocaleString()} đồng phí phạt cần xử lý.`}
+            accessibilityHint="Nhấn để xem chi tiết và thanh toán"
           >
-            <LinearGradient colors={['#FF6B6B', '#EE5253']} style={styles.bannerGradient}>
-              <Ionicons name="warning" size={22} color="#FFFFFF" />
+            <LinearGradient
+              colors={["#FF6B6B", "#EE5253"]}
+              style={styles.bannerGradient}
+            >
+              <Ionicons
+                name="warning"
+                size={22}
+                color="#FFFFFF"
+                accessibilityElementsHidden={true}
+              />
               <View style={styles.bannerInfo}>
-                <Text style={styles.bannerTitle}>Cảnh báo quá hạn & Phí phạt</Text>
+                <Text style={styles.bannerTitle}>
+                  Cảnh báo quá hạn & Phí phạt
+                </Text>
                 <Text style={styles.bannerSubtitle}>
                   Bạn có {totalFine.toLocaleString()}đ phí phạt cần xử lý.
                 </Text>
               </View>
-              <Ionicons name="chevron-forward" size={18} color="#FFFFFF" />
+              <Ionicons
+                name="chevron-forward"
+                size={18}
+                color="#FFFFFF"
+                accessibilityElementsHidden={true}
+              />
             </LinearGradient>
           </TouchableOpacity>
         )}
 
         {/* Sync Stats Cards - Matching Librarian Classic Layout */}
-        <View style={styles.statsRow}>
+        <View style={styles.statsRow} accessibilityLabel="Thống kê tóm tắt">
           {stats.map((stat, index) => (
-            <View
+            <AnimatedWrapper
               key={index}
-              style={[
-                styles.statCard, 
-                { backgroundColor: stat.bgColor, flex: stat.flex },
-                index !== stats.length - 1 && { marginRight: 10 }
-              ]}
+              index={index}
+              delay={80}
+              style={{
+                flex: stat.flex,
+                marginRight: index !== stats.length - 1 ? 10 : 0,
+              }}
             >
-              <View style={styles.statTop}>
-                <Ionicons name={stat.icon as any} size={18} color="rgba(255,255,255,0.9)" />
-                <Text style={styles.statValue}>{stat.value}</Text>
+              <View
+                style={[
+                  styles.statCard,
+                  { backgroundColor: stat.bgColor, flex: 1 },
+                ]}
+                accessible={true}
+                accessibilityLabel={`${stat.label}: ${stat.value}`}
+              >
+                <View style={styles.statTop}>
+                  <Ionicons
+                    name={stat.icon as any}
+                    size={18}
+                    color="rgba(255,255,255,0.9)"
+                    accessibilityElementsHidden={true}
+                  />
+                  <Text style={styles.statValue}>{stat.value}</Text>
+                </View>
+                <Text style={styles.statLabel} numberOfLines={1}>
+                  {stat.label}
+                </Text>
               </View>
-              <Text style={styles.statLabel} numberOfLines={1}>{stat.label}</Text>
-            </View>
+            </AnimatedWrapper>
           ))}
         </View>
+
+        {/* Analytics Section */}
+        <AnimatedWrapper index={3} type="fade">
+          <View style={styles.analyticsCard}>
+            <Text style={styles.analyticsTitle}>Thống kê cá nhân</Text>
+            <View style={styles.chartRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.chartLabel}>Xu hướng mượn sách</Text>
+                <LineChart
+                  data={{
+                    labels: ["T2", "T3", "T4", "T5", "T6", "T7"],
+                    datasets: [{ data: [2, 5, 3, 8, 4, 6] }],
+                  }}
+                  width={width - 80}
+                  height={160}
+                  chartConfig={chartConfig}
+                  bezier
+                  style={styles.chart}
+                  withDots={false}
+                  withInnerLines={false}
+                  withOuterLines={false}
+                  withVerticalLines={false}
+                  withHorizontalLines={false}
+                  withScrollableDot={false}
+                />
+              </View>
+            </View>
+
+            <View style={{ marginTop: 24 }}>
+              <Text style={styles.chartLabel}>Phân bổ thể loại yêu thích</Text>
+              <PieChart
+                data={[
+                  {
+                    name: "Văn học",
+                    count: 15,
+                    color: "#3A75F2",
+                    legendFontColor: "#8A8F9E",
+                    legendFontSize: 11,
+                  },
+                  {
+                    name: "Công nghệ",
+                    count: 10,
+                    color: "#10B981",
+                    legendFontColor: "#8A8F9E",
+                    legendFontSize: 11,
+                  },
+                  {
+                    name: "Khoa học",
+                    count: 5,
+                    color: "#F59E0B",
+                    legendFontColor: "#8A8F9E",
+                    legendFontSize: 11,
+                  },
+                  {
+                    name: "Khác",
+                    count: 3,
+                    color: "#6E768F",
+                    legendFontColor: "#8A8F9E",
+                    legendFontSize: 11,
+                  },
+                ]}
+                width={width - 60}
+                height={140}
+                chartConfig={chartConfig}
+                accessor={"count"}
+                backgroundColor={"transparent"}
+                paddingLeft={"0"}
+                center={[10, 0]}
+                absolute
+              />
+            </View>
+          </View>
+        </AnimatedWrapper>
+
+        {/* Community Feed Preview */}
+        <View style={styles.feedContainer}>
+          <View style={styles.sectionHeader}>
+            <View>
+              <Text style={styles.sectionTitle}>Hoạt động cộng đồng</Text>
+              <Text style={styles.sectionSubtitle}>
+                Cập nhật mới nhất từ mọi người
+              </Text>
+            </View>
+            <TouchableOpacity
+              onPress={() => router.push("/(member)/community" as any)}
+            >
+              <Text style={styles.viewAll}>Xem tất cả</Text>
+            </TouchableOpacity>
+          </View>
+
+          {isFeedLoading ? (
+            <ActivityIndicator color="#4F8EF7" style={{ marginVertical: 20 }} />
+          ) : feedData && feedData.length > 0 ? (
+            <View style={styles.feedList}>
+              {feedData.slice(0, 3).map((activity, index) => (
+                <AnimatedWrapper
+                  key={activity.id}
+                  index={index}
+                  delay={100}
+                  onPress={() =>
+                    router.push(`/(member)/book/${activity.book_isbn}` as any)
+                  }
+                >
+                  <View
+                    style={[
+                      styles.feedItem,
+                      index === 2 && { borderBottomWidth: 0 },
+                    ]}
+                    accessibilityRole="link"
+                    accessibilityLabel={`${activity.user_name} ${activity.type === "BORROW" ? "mượn" : "đánh giá"} sách ${activity.book_title}`}
+                    accessibilityHint="Nhấn để xem chi tiết sách"
+                  >
+                    <View style={styles.feedAvatar}>
+                      {activity.avatar_url ? (
+                        <Image
+                          source={{ uri: activity.avatar_url }}
+                          style={styles.avatarImg}
+                        />
+                      ) : (
+                        <View
+                          style={[
+                            styles.avatarPlaceholder,
+                            {
+                              backgroundColor:
+                                activity.type === "BORROW"
+                                  ? "#3A75F2"
+                                  : "#F59E0B",
+                            },
+                          ]}
+                        >
+                          <Text style={styles.avatarText}>
+                            {activity.user_name.charAt(0)}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                    <View style={styles.feedContent}>
+                      <Text style={styles.feedText} numberOfLines={2}>
+                        <Text style={styles.userName}>
+                          {activity.user_name}
+                        </Text>
+                        <Text style={styles.actionText}>
+                          {activity.type === "BORROW"
+                            ? " vừa mượn "
+                            : " vừa đánh giá "}
+                        </Text>
+                        <Text style={styles.bookName}>
+                          {activity.book_title}
+                        </Text>
+                      </Text>
+                      <Text style={styles.feedTime}>
+                        {timeAgo(activity.timestamp)}
+                      </Text>
+                    </View>
+                    <Ionicons
+                      name="chevron-forward"
+                      size={14}
+                      color="#3D4260"
+                    />
+                  </View>
+                </AnimatedWrapper>
+              ))}
+            </View>
+          ) : (
+            <Text style={styles.emptyFeed}>Chưa có hoạt động nào mới.</Text>
+          )}
+        </View>
+
+        {/* Recommendations Section */}
+        {(aiRecs.length > 0 || recBooks?.length > 0) && (
+          <View style={styles.recommendationContainer}>
+            <View style={styles.sectionHeader}>
+              <View>
+                <Text style={styles.sectionTitle}>Gợi ý bởi BiblioAI</Text>
+                <Text style={styles.sectionSubtitle}>
+                  Dựa trên lịch sử mượn sách của bạn
+                </Text>
+              </View>
+              {isAiLoading ? (
+                <ActivityIndicator size="small" color="#3A75F2" />
+              ) : (
+                <View style={styles.aiBadge}>
+                  <Ionicons name="sparkles" size={12} color="#FFFFFF" />
+                  <Text style={styles.aiBadgeText}>AI Powered</Text>
+                </View>
+              )}
+            </View>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.carousel}
+            >
+              {(aiRecs.length > 0 ? aiRecs : recBooks)?.map((book, index) => (
+                <AnimatedWrapper
+                  key={book.isbn}
+                  index={index}
+                  type="slide-right"
+                  onPress={() =>
+                    router.push(`/(member)/book/${book.isbn}` as any)
+                  }
+                  style={styles.recCard}
+                >
+                  <Image
+                    source={{ uri: book.cover_url }}
+                    style={styles.recImage}
+                  />
+                  <View style={styles.recInfo}>
+                    <Text style={styles.recTitle} numberOfLines={1}>
+                      {book.title}
+                    </Text>
+                    <View style={styles.recRating}>
+                      <Ionicons name="star" size={12} color="#F59E0B" />
+                      <Text style={styles.recRatingText}>
+                        {book.average_rating || "4.5"}
+                      </Text>
+                    </View>
+                  </View>
+                </AnimatedWrapper>
+              ))}
+            </ScrollView>
+          </View>
+        )}
 
         {/* Featured Section */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Khám phá sách hay</Text>
-          <TouchableOpacity onPress={() => router.push('/(member)/search')}>
+          <TouchableOpacity onPress={() => router.push("/(member)/search")}>
             <Text style={styles.viewAll}>Tất cả</Text>
           </TouchableOpacity>
         </View>
-        
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.carousel}>
-          {featuredBooks.map((book) => (
-            <TouchableOpacity 
-              key={book.id} 
+
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.carousel}
+        >
+          {featuredBooks.map((book, index) => (
+            <AnimatedWrapper
+              key={book.isbn}
+              index={index}
+              type="slide-right"
+              onPress={() => router.push(`/(member)/book/${book.isbn}` as any)}
               style={styles.featuredCard}
-              onPress={() => router.push(`/(member)/search`)}
             >
-              <Image source={{ uri: book.cover_url }} style={styles.featuredImage} />
-              <LinearGradient colors={['transparent', 'rgba(0,0,0,0.8)']} style={styles.featuredOverlay}>
-                <Text style={styles.featuredTitle} numberOfLines={1}>{book.title}</Text>
+              <Image
+                source={{
+                  uri:
+                    book.cover_url ||
+                    "https://images.unsplash.com/photo-1543005120-019f2ef5ef73",
+                }}
+                style={styles.featuredImage}
+              />
+              <LinearGradient
+                colors={["transparent", "rgba(0,0,0,0.8)"]}
+                style={styles.featuredOverlay}
+              >
+                <Text style={styles.featuredTitle} numberOfLines={1}>
+                  {book.title}
+                </Text>
                 <Text style={styles.featuredAuthor}>{book.author}</Text>
               </LinearGradient>
-            </TouchableOpacity>
+            </AnimatedWrapper>
           ))}
         </ScrollView>
 
         {/* Genre Chips */}
-        <Text style={styles.sectionTitle}>Chủ đề</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryScroll}>
+        <View style={{ marginHorizontal: 20, marginBottom: 16 }}>
+          <Text style={styles.sectionTitle}>Chủ đề</Text>
+        </View>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.categoryScroll}
+        >
           {categories.map((cat) => (
-            <TouchableOpacity 
-              key={cat} 
+            <TouchableOpacity
+              key={cat}
               onPress={() => setActiveCategory(cat)}
-              style={[styles.categoryChip, activeCategory === cat && styles.activeChip]}
+              style={[
+                styles.categoryChip,
+                activeCategory === cat && styles.activeChip,
+              ]}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: activeCategory === cat }}
+              accessibilityLabel={`Chủ đề ${cat}`}
             >
-              <Text style={[styles.categoryText, activeCategory === cat && styles.activeCategoryText]}>
+              <Text
+                style={[
+                  styles.categoryText,
+                  activeCategory === cat && styles.activeCategoryText,
+                ]}
+              >
                 {cat}
               </Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
 
-        {/* Books Grid */}
         <View style={styles.booksGrid}>
-          {bookList?.slice(5, 9).map((book) => (
-            <TouchableOpacity 
-              key={book.id} 
+          {myBooks?.slice(5, 13).map((book, index) => (
+            <AnimatedWrapper
+              key={book.isbn}
+              index={index % 2}
+              delay={150}
               style={styles.bookGridItem}
-              onPress={() => router.push(`/(member)/search`)}
+              onPress={() => router.push(`/(member)/book/${book.isbn}` as any)}
             >
-              <Image source={{ uri: book.cover_url }} style={styles.gridImage} />
-              <Text style={styles.gridTitle} numberOfLines={1}>{book.title}</Text>
+              <Image
+                source={{
+                  uri:
+                    book.cover_url ||
+                    "https://images.unsplash.com/photo-1543005120-019f2ef5ef73?q=80&w=200",
+                }}
+                style={styles.gridImage}
+              />
+              <Text style={styles.gridTitle} numberOfLines={1}>
+                {book.title}
+              </Text>
               <Text style={styles.gridAuthor}>{book.author}</Text>
-            </TouchableOpacity>
+            </AnimatedWrapper>
           ))}
         </View>
+
+        <TouchableOpacity
+          style={styles.aiFab}
+          onPress={startListening}
+          activeOpacity={0.9}
+        >
+          <LinearGradient
+            colors={["#4F8EF7", "#3A75F2"]}
+            style={styles.aiFabGradient}
+          >
+            <Ionicons name="mic" size={24} color="#FFFFFF" />
+          </LinearGradient>
+        </TouchableOpacity>
+
+        {/* Voice Search Modal */}
+        <Modal visible={isListening} transparent={true} animationType="fade">
+          <View style={styles.voiceOverlay}>
+            <View style={styles.voiceCard}>
+              <View style={styles.voiceWaveContainer}>
+                {[0, 1, 2, 3, 4].map((i) => (
+                  <View
+                    key={i}
+                    style={[
+                      styles.voiceWave,
+                      { height: 20 + Math.random() * 40 },
+                    ]}
+                  />
+                ))}
+              </View>
+              <Text style={styles.voiceStatus}>Đang nghe...</Text>
+              <TouchableOpacity
+                style={styles.cancelVoiceBtn}
+                onPress={() => stopListening(false)}
+              >
+                <Text style={styles.cancelVoiceText}>Hủy</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+
+        {/* AI Librarian Modal */}
+        <Modal visible={showAiModal} transparent animationType="slide">
+          <BlurView intensity={80} tint="dark" style={styles.modalOverlay}>
+            <View style={styles.aiModalContent}>
+              <LinearGradient
+                colors={["#1E2540", "#0B0F1A"]}
+                style={styles.aiModalGradient}
+              >
+                <View style={styles.aiModalHeader}>
+                  <Ionicons name="sparkles" size={24} color="#FFD700" />
+                  <Text style={styles.aiModalTitle}>Thủ thư ảo BiblioAI</Text>
+                  <TouchableOpacity onPress={() => setShowAiModal(false)}>
+                    <Ionicons name="close" size={24} color="#8B8FA3" />
+                  </TouchableOpacity>
+                </View>
+                <ScrollView style={styles.aiModalBody}>
+                  <Text style={styles.aiResponseText}>{aiResponse?.text}</Text>
+                  {aiResponse?.books?.length > 0 && (
+                    <View style={styles.aiBooksSection}>
+                      <Text style={styles.aiSubTitle}>Sách gợi ý cho bạn:</Text>
+                      {aiResponse.books.map((book: any) => (
+                        <TouchableOpacity
+                          key={book.id}
+                          style={styles.aiBookItem}
+                          onPress={() => {
+                            setShowAiModal(false);
+                            router.push(`/(member)/book/${book.isbn}` as any);
+                          }}
+                        >
+                          <Image
+                            source={{ uri: book.cover_url }}
+                            style={styles.aiBookCover}
+                          />
+                          <View style={styles.aiBookInfo}>
+                            <Text style={styles.aiBookTitle} numberOfLines={1}>
+                              {book.title}
+                            </Text>
+                            <Text style={styles.aiBookAuthor}>
+                              {book.author}
+                            </Text>
+                          </View>
+                          <Ionicons
+                            name="chevron-forward"
+                            size={16}
+                            color="#3A75F2"
+                          />
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  )}
+                </ScrollView>
+              </LinearGradient>
+            </View>
+          </BlurView>
+        </Modal>
+
+        <NotificationCenter
+          visible={showNotifications}
+          onClose={() => setShowNotifications(false)}
+        />
+
+        <OfflineCard
+          visible={isOfflineCardVisible}
+          onClose={() => setIsOfflineCardVisible(false)}
+          profile={profile}
+        />
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0F121D' },
+  container: { flex: 1, backgroundColor: "#0F121D" },
   scrollContent: { paddingBottom: 100 },
-  header: { 
-    paddingHorizontal: 20, 
-    paddingTop: 20, 
-    paddingBottom: 20, 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    alignItems: 'center' 
+  offlineBanner: {
+    backgroundColor: "#EF4444",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 6,
+    zIndex: 1000,
   },
-  welcomeText: { color: '#8A8F9E', fontSize: 13, marginBottom: 2 },
-  nameText: { color: '#FFFFFF', fontSize: 18, fontWeight: 'bold' },
-  iconBtn: { 
-    width: 38, 
-    height: 38, 
-    borderRadius: 12, 
-    backgroundColor: '#171B2B', 
-    alignItems: 'center', 
-    justifyContent: 'center',
+  offlineBannerText: {
+    color: "white",
+    fontSize: 12,
+    fontWeight: "bold",
+    marginLeft: 8,
+  },
+  header: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 20,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  welcomeText: { color: "#8A8F9E", fontSize: 13, marginBottom: 2 },
+  nameText: { color: "#FFFFFF", fontSize: 18, fontWeight: "bold" },
+  iconBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: "#171B2B",
+    alignItems: "center",
+    justifyContent: "center",
     borderWidth: 1,
-    borderColor: '#1F263B'
+    borderColor: "#1F263B",
+  },
+  levelBadge: {
+    position: "absolute",
+    top: -5,
+    right: -5,
+    backgroundColor: "#3A75F2",
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: "#0F121D",
+  },
+  levelText: {
+    color: "#FFFFFF",
+    fontSize: 9,
+    fontWeight: "bold",
+  },
+  aiFab: {
+    position: "absolute",
+    bottom: 100,
+    right: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    elevation: 8,
+    shadowColor: "#3A75F2",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    zIndex: 100,
+  },
+  aiFabGradient: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 28,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  offlineIndicator: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(245, 158, 11, 0.1)",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 10,
+    marginRight: 10,
+    gap: 4,
+    borderWidth: 1,
+    borderColor: "rgba(245, 158, 11, 0.2)",
+  },
+  offlineIndicatorText: {
+    color: "#F59E0B",
+    fontSize: 10,
+    fontWeight: "800",
   },
   overdueBanner: {
     marginHorizontal: 20,
     marginBottom: 20,
     borderRadius: 14,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   bannerGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     padding: 16,
   },
   bannerInfo: {
     flex: 1,
     marginLeft: 12,
   },
-  bannerTitle: { color: '#FFFFFF', fontSize: 14, fontWeight: 'bold' },
-  bannerSubtitle: { color: 'rgba(255,255,255,0.8)', fontSize: 12, marginTop: 2 },
+  bannerTitle: { color: "#FFFFFF", fontSize: 14, fontWeight: "bold" },
+  bannerSubtitle: {
+    color: "rgba(255,255,255,0.8)",
+    fontSize: 12,
+    marginTop: 2,
+  },
+  broadcastBanner: {
+    marginHorizontal: 20,
+    marginBottom: 20,
+    backgroundColor: "#171B2B",
+    borderRadius: 14,
+    padding: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#1F263B",
+    borderLeftWidth: 4,
+  },
+  broadcastIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(58, 117, 242, 0.05)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+  },
+  broadcastInfo: {
+    flex: 1,
+  },
+  broadcastTitle: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "bold",
+    marginBottom: 2,
+  },
+  broadcastContent: {
+    color: "#8A8F9E",
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  closeBroadcast: {
+    padding: 4,
+    marginLeft: 8,
+  },
   statsRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     paddingHorizontal: 20,
     marginBottom: 24,
     height: 80,
@@ -205,63 +1223,242 @@ const styles = StyleSheet.create({
   statCard: {
     borderRadius: 14,
     padding: 12,
-    justifyContent: 'space-between',
+    justifyContent: "space-between",
   },
   statTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
   statValue: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
+    fontWeight: "bold",
+    color: "#FFFFFF",
   },
-  statLabel: {
-    fontSize: 11,
-    color: '#FFFFFF',
-    fontWeight: '500',
-    opacity: 0.9,
+  statLabel: { color: "rgba(255,255,255,0.8)", fontSize: 12 },
+  voiceOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.8)",
+    justifyContent: "center",
+    alignItems: "center",
   },
+  voiceCard: {
+    backgroundColor: "#171B2B",
+    borderRadius: 24,
+    padding: 32,
+    alignItems: "center",
+    width: "80%",
+  },
+  voiceWaveContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    height: 80,
+    gap: 8,
+    marginBottom: 20,
+  },
+  voiceWave: { width: 4, borderRadius: 2, backgroundColor: "#3A75F2" },
+  voiceStatus: {
+    color: "white",
+    fontSize: 18,
+    fontWeight: "bold",
+    marginBottom: 20,
+  },
+  cancelVoiceBtn: { padding: 12 },
+  cancelVoiceText: { color: "#8A8F9E", fontSize: 14 },
+  modalOverlay: { flex: 1, justifyContent: "flex-end" },
+  aiModalContent: {
+    height: "70%",
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    overflow: "hidden",
+  },
+  aiModalGradient: { flex: 1, padding: 24 },
+  aiModalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 24,
+    justifyContent: "space-between",
+  },
+  aiModalTitle: {
+    color: "white",
+    fontSize: 18,
+    fontWeight: "bold",
+    flex: 1,
+    marginLeft: 12,
+  },
+  aiModalBody: { flex: 1, marginTop: 8 },
+  aiResponseText: { color: "#E1E4ED", fontSize: 15, lineHeight: 24 },
+  aiBooksSection: { marginTop: 24 },
+  aiSubTitle: {
+    color: "#8A8F9E",
+    fontSize: 13,
+    fontWeight: "bold",
+    marginBottom: 12,
+    textTransform: "uppercase",
+  },
+  aiBookItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#1C2237",
+    borderRadius: 16,
+    padding: 12,
+    marginBottom: 10,
+  },
+  aiBookCover: { width: 40, height: 56, borderRadius: 6 },
+  aiBookInfo: { flex: 1, marginLeft: 12 },
+  aiBookTitle: { color: "white", fontSize: 14, fontWeight: "bold" },
+  aiBookAuthor: { color: "#8A8F9E", fontSize: 12, marginTop: 2 },
   sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginHorizontal: 20,
     marginBottom: 16,
   },
-  sectionTitle: { color: '#FFFFFF', fontSize: 16, fontWeight: 'bold', marginLeft: 20, marginBottom: 16 },
-  viewAll: { color: '#3A75F2', fontSize: 13, fontWeight: '600' },
-  carousel: { paddingLeft: 20, marginBottom: 30 },
-  featuredCard: { width: width * 0.7, height: 180, marginRight: 12, borderRadius: 20, overflow: 'hidden' },
-  featuredImage: { width: '100%', height: '100%' },
-  featuredOverlay: { 
-    position: 'absolute', bottom: 0, left: 0, right: 0, 
-    padding: 16, height: '60%', justifyContent: 'flex-end'
+  sectionTitle: { color: "#FFFFFF", fontSize: 16, fontWeight: "bold" },
+  sectionSubtitle: { color: "#8A8F9E", fontSize: 11, marginTop: 2 },
+  aiBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#3A75F2",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    gap: 4,
   },
-  featuredTitle: { color: '#FFFFFF', fontSize: 16, fontWeight: 'bold' },
-  featuredAuthor: { color: 'rgba(255,255,255,0.7)', fontSize: 12, marginTop: 2 },
+  aiBadgeText: {
+    color: "#FFFFFF",
+    fontSize: 10,
+    fontWeight: "800",
+    textTransform: "uppercase",
+  },
+  recommendationContainer: { marginBottom: 10 },
+  recCard: {
+    width: 140,
+    marginRight: 15,
+    backgroundColor: "#171B2B",
+    borderRadius: 16,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "#1F263B",
+  },
+  recImage: { width: "100%", height: 190 },
+  recInfo: { padding: 10 },
+  recTitle: { color: "#FFFFFF", fontSize: 12, fontWeight: "700" },
+  recRating: { flexDirection: "row", alignItems: "center", marginTop: 4 },
+  recRatingText: {
+    color: "#F59E0B",
+    fontSize: 11,
+    fontWeight: "bold",
+    marginLeft: 4,
+  },
+  viewAll: { color: "#3A75F2", fontSize: 13, fontWeight: "600" },
+  carousel: { paddingLeft: 20, marginBottom: 30 },
+  featuredCard: {
+    width: width * 0.7,
+    height: 180,
+    marginRight: 12,
+    borderRadius: 20,
+    overflow: "hidden",
+  },
+  featuredImage: { width: "100%", height: "100%" },
+  featuredOverlay: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    padding: 16,
+    height: "60%",
+    justifyContent: "flex-end",
+  },
+  featuredTitle: { color: "#FFFFFF", fontSize: 16, fontWeight: "bold" },
+  featuredAuthor: {
+    color: "rgba(255,255,255,0.7)",
+    fontSize: 12,
+    marginTop: 2,
+  },
   categoryScroll: { paddingLeft: 20, marginBottom: 30 },
-  categoryChip: { 
-    paddingHorizontal: 16, 
-    paddingVertical: 10, 
-    borderRadius: 12, 
-    backgroundColor: '#171B2B', 
+  categoryChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: "#171B2B",
     marginRight: 8,
     borderWidth: 1,
-    borderColor: '#1F263B'
+    borderColor: "#1F263B",
   },
-  activeChip: { backgroundColor: '#3A75F2', borderColor: '#3A75F2' },
-  categoryText: { color: '#6E768F', fontSize: 13, fontWeight: '700' },
-  activeCategoryText: { color: '#FFFFFF' },
-  booksGrid: { 
-    flexDirection: 'row', 
-    flexWrap: 'wrap', 
-    paddingHorizontal: 20, 
-    justifyContent: 'space-between' 
+  activeChip: { backgroundColor: "#3A75F2", borderColor: "#3A75F2" },
+  categoryText: { color: "#6E768F", fontSize: 13, fontWeight: "700" },
+  activeCategoryText: { color: "#FFFFFF" },
+  booksGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    paddingHorizontal: 20,
+    justifyContent: "space-between",
   },
-  bookGridItem: { width: '47%', marginBottom: 20 },
-  gridImage: { width: '100%', height: 210, borderRadius: 16, marginBottom: 10 },
-  gridTitle: { color: '#FFFFFF', fontSize: 13, fontWeight: '700' },
-  gridAuthor: { color: '#6E768F', fontSize: 11, marginTop: 2 },
+  bookGridItem: { width: "47%", marginBottom: 20 },
+  gridImage: { width: "100%", height: 210, borderRadius: 16, marginBottom: 10 },
+  gridTitle: { color: "#FFFFFF", fontSize: 13, fontWeight: "700" },
+  gridAuthor: { color: "#6E768F", fontSize: 11, marginTop: 2 },
+  analyticsCard: {
+    backgroundColor: "#171B2B",
+    marginHorizontal: 20,
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 30,
+    borderWidth: 1,
+    borderColor: "#1F263B",
+  },
+  analyticsTitle: {
+    color: "#FFFFFF",
+    fontSize: 15,
+    fontWeight: "800",
+    marginBottom: 20,
+  },
+  chartRow: { flexDirection: "row" },
+  chartLabel: {
+    color: "#8A8F9E",
+    fontSize: 12,
+    fontWeight: "600",
+    marginBottom: 12,
+  },
+  chart: {
+    marginVertical: 8,
+    borderRadius: 16,
+    paddingRight: 40,
+  },
+  feedContainer: { marginBottom: 30 },
+  feedList: {
+    marginHorizontal: 20,
+    backgroundColor: "#171B2B",
+    borderRadius: 20,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: "#1F263B",
+  },
+  feedItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.05)",
+  },
+  feedAvatar: { marginRight: 12 },
+  avatarImg: { width: 40, height: 40, borderRadius: 20 },
+  avatarPlaceholder: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarText: { color: "white", fontWeight: "bold", fontSize: 16 },
+  feedContent: { flex: 1, marginRight: 8 },
+  feedText: { fontSize: 13, color: "#8A8F9E", lineHeight: 18 },
+  userName: { color: "#FFFFFF", fontWeight: "bold" },
+  actionText: { color: "#8A8F9E" },
+  bookName: { color: "#4F8EF7", fontWeight: "600" },
+  ratingText: { color: "#F59E0B", fontWeight: "bold" },
+  feedTime: { fontSize: 11, color: "#5A5F7A", marginTop: 4 },
+  emptyFeed: { color: "#5A5F7A", textAlign: "center", marginVertical: 20 },
 });

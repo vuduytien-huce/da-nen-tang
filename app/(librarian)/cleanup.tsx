@@ -95,23 +95,56 @@ export default function BookCleanup() {
     );
   };
 
+  const handleSystemCleanup = async () => {
+    Alert.alert(
+      'Tối ưu hóa hệ thống', 
+      'Bạn có muốn dọn dẹp các thông báo cũ (trên 60 ngày) và dữ liệu thừa? Hành động này giúp tăng tốc độ ứng dụng.',
+      [
+        { text: 'Hủy', style: 'cancel' },
+        { 
+          text: 'Chạy ngay', 
+          onPress: async () => {
+            setMerging(true);
+            try {
+              const { data, error } = await supabase.rpc('fn_cleanup_system_resources');
+              if (error) throw error;
+              
+              const deleted = data.notifications_deleted || 0;
+              Alert.alert('Thành công', `Đã dọn dẹp ${deleted} thông báo cũ và tối ưu hóa dữ liệu.`);
+            } catch (err: any) {
+              Alert.alert('Lỗi', err.message);
+            } finally {
+              setMerging(false);
+            }
+          }
+        }
+      ]
+    );
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Dọn dẹp sách trùng</Text>
-        {duplicates.length > 0 && !merging && (
-          <TouchableOpacity onPress={autoMergeAll} style={styles.autoBtn}>
-            <Ionicons name="flash" size={18} color="#FFFFFF" />
-            <Text style={styles.autoBtnText}>Dọn nhanh</Text>
+        <Text style={styles.title}>Dọn dẹp & Tối ưu</Text>
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          <TouchableOpacity onPress={handleSystemCleanup} style={[styles.autoBtn, { backgroundColor: '#10B981' }]}>
+            <Ionicons name="sparkles" size={18} color="#FFFFFF" />
+            <Text style={styles.autoBtnText}>Tối ưu DB</Text>
           </TouchableOpacity>
-        )}
+          {duplicates.length > 0 && !merging && (
+            <TouchableOpacity onPress={autoMergeAll} style={styles.autoBtn}>
+              <Ionicons name="flash" size={18} color="#FFFFFF" />
+              <Text style={styles.autoBtnText}>Dọn trùng</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
       {loading ? (
         <ActivityIndicator size="large" color="#4F8EF7" style={{ marginTop: 50 }} />
       ) : duplicates.length === 0 ? (
         <View style={styles.empty}>
-          <Ionicons name="shield-checkmark-outline" size={80} color="#1E2540" />
+          <Ionicons name="checkmark-circle-outline" size={80} color="#1E2540" />
           <Text style={styles.emptyText}>Tuyệt vời! Không có sách trùng.</Text>
         </View>
       ) : (

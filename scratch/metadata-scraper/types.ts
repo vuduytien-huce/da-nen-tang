@@ -5,7 +5,7 @@ export interface Chapter {
 }
 
 export interface AudiobookMetadata {
-  source_platform: 'fonos' | 'voizfm';
+  source_platform: 'fonos' | 'voizfm' | 'thuviensachnoi';
   source_id: string;
   source_url: string;
 

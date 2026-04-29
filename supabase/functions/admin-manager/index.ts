@@ -7,6 +7,8 @@ import {
 } from '../_shared/middleware.ts';
 import { 
   CreateUserSchema, 
+  UpdateUserSchema,
+  DeleteUserSchema,
   validateRequest 
 } from '../_shared/validation.ts';
 
@@ -19,7 +21,7 @@ Deno.serve(async (req) => {
   try {
     // 1. Authentication & Authorization Middleware
     // Only 'Admin' or 'Librarian' can access this function
-    const { user: requester } = await withAuth(req, ['Admin', 'Librarian']);
+    const { user: requester } = await withAuth(req, ['ADMIN', 'LIBRARIAN']);
 
     const url = new URL(req.url);
     const path = url.pathname.replace(/\/admin-manager\/?/, '');
@@ -78,12 +80,46 @@ Deno.serve(async (req) => {
     }
 
     /**
-     * DELETE /delete-user
+     * PUT /update-user
+     */
+    if (req.method === 'PUT' && path === 'update-user') {
+      const data = await validateRequest(req, UpdateUserSchema);
+      
+      const updatePayload: any = {};
+      if (data.fullName !== undefined) updatePayload.full_name = data.fullName;
+      if (data.role !== undefined) updatePayload.role = data.role;
+      if (data.isLocked !== undefined) updatePayload.is_locked = data.isLocked;
+
+      const { data: updatedProfile, error: profileError } = await supabaseAdmin
+        .from('profiles')
+        .update(updatePayload)
+        .eq('id', data.id)
+        .select()
+        .single();
+
+      if (profileError) throw profileError;
+
+      // Sync auth status if isLocked changed
+      if (data.isLocked !== undefined) {
+        if (data.isLocked) {
+          await supabaseAdmin.auth.admin.updateUserById(data.id, { ban_duration: '876000h' }); // 100 years
+        } else {
+          await supabaseAdmin.auth.admin.updateUserById(data.id, { ban_duration: 'none' });
+        }
+      }
+
+      return successResponse({ 
+        message: 'User updated successfully',
+        user: updatedProfile
+      });
+    }
+
+    /**
+     * DELETE /delete-user?id=...
      */
     if (req.method === 'DELETE' && path === 'delete-user') {
-      const userId = url.searchParams.get('id');
-      if (!userId) throw { message: 'Missing user ID', status: 400 };
-
+      const { userId } = await validateRequest(req, DeleteUserSchema);
+      
       const { error } = await supabaseAdmin.auth.admin.deleteUser(userId);
       if (error) throw error;
 

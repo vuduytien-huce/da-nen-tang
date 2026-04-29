@@ -9,7 +9,8 @@
 
 import pLimit from 'p-limit';
 import { scrapeFonosBook, getFonosCatalogSlugs } from './fonos-scraper';
-import { scrapeVoizFMBook, getVoizFMCatalogIds, closeBrowser } from './voizfm-scraper';
+import { scrapeVoizFMBook, getVoizFMCatalogIds, closeBrowser as closeVoizBrowser } from './voizfm-scraper';
+import { scrapeThuVienSachNoiBook, getThuVienSachNoiCatalog, closeBrowser as closeThuVienBrowser } from './thuviensachnoi-scraper';
 import { saveMetadata, batchSave, closePool } from './save-to-db';
 import type { AudiobookMetadata } from './types';
 import fs from 'fs';
@@ -46,7 +47,20 @@ async function runVoizFMSingle(id: number) {
   } else {
     console.error('Failed to scrape');
   }
-  await closeBrowser();
+  await closeVoizBrowser();
+}
+
+async function runThuVienSingle(url: string, migrate = true) {
+  console.log(`\n📖 ThuVienSachNoi single: ${url} (Migrate: ${migrate})`);
+  const data = await scrapeThuVienSachNoiBook(url, migrate);
+  if (data) {
+    console.log(JSON.stringify(data, null, 2));
+    await saveMetadata(data);
+    saveJson(`thuviensachnoi-${data.source_id}.json`, data);
+  } else {
+    console.error('Failed to scrape');
+  }
+  await closeThuVienBrowser();
 }
 
 async function runFonosCatalog() {
@@ -98,9 +112,33 @@ async function runVoizFMCatalog() {
     )
   );
 
-  await closeBrowser();
+  await closeVoizBrowser();
   saveJson('voizfm-catalog-results.json', results);
   console.log(`\n✅ VoizFM done: ${results.length}/${ids.length} scraped`);
+}
+
+async function runThuVienCatalog(maxPages = 1, migrate = true) {
+  console.log(`\n📖 ThuVienSachNoi catalog crawl... (Max Pages: ${maxPages}, Migrate: ${migrate})`);
+  const urls = await getThuVienSachNoiCatalog(maxPages);
+  console.log(`Found ${urls.length} books. Scraping...`);
+
+  const limit = pLimit(1); // Playwright
+  const results: AudiobookMetadata[] = [];
+
+  for (const url of urls) {
+    await limit(async () => {
+      const data = await scrapeThuVienSachNoiBook(url, migrate);
+      if (data) {
+        results.push(data);
+        await saveMetadata(data);
+      }
+      await new Promise((r) => setTimeout(r, 2000));
+    });
+  }
+
+  await closeThuVienBrowser();
+  saveJson('thuviensachnoi-catalog-results.json', results);
+  console.log(`\n✅ ThuVienSachNoi done: ${results.length}/${urls.length} scraped`);
 }
 
 // --- CLI ---
@@ -122,16 +160,26 @@ const [, , command, arg] = process.argv;
     case 'voizfm-catalog':
       await runVoizFMCatalog();
       break;
+    case 'thuviensachnoi':
+      if (!arg) { console.error('Usage: ... thuviensachnoi <url>'); process.exit(1); }
+      await runThuVienSingle(arg);
+      break;
+    case 'thuviensachnoi-catalog':
+      await runThuVienCatalog(arg ? parseInt(arg) : 1);
+      break;
     case 'catalog':
       await runFonosCatalog();
       await runVoizFMCatalog();
+      await runThuVienCatalog(1);
       break;
     default:
       console.log(`Usage:
   npx tsx scratch/metadata-scraper/run-scraper.ts fonos <slug>          # Scrape 1 Fonos book
   npx tsx scratch/metadata-scraper/run-scraper.ts voizfm <id>           # Scrape 1 VoizFM book
+  npx tsx scratch/metadata-scraper/run-scraper.ts thuviensachnoi <url>  # Scrape 1 ThuVienSachNoi book
   npx tsx scratch/metadata-scraper/run-scraper.ts fonos-catalog         # Scrape all Fonos books
   npx tsx scratch/metadata-scraper/run-scraper.ts voizfm-catalog        # Scrape all VoizFM books
+  npx tsx scratch/metadata-scraper/run-scraper.ts thuviensachnoi-catalog # Scrape all ThuVienSachNoi books
   npx tsx scratch/metadata-scraper/run-scraper.ts catalog               # Scrape EVERYTHING`);
   }
   await closePool();

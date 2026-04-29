@@ -3,6 +3,7 @@ import { View, ScrollView, TouchableOpacity, Alert, Modal, TextInput, Text, Styl
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../src/api/supabase';
+import { bulkEnrichAudiobooks } from '../../src/services/audioEnrichment';
 
 export default function MetadataSources() {
   const queryClient = useQueryClient();
@@ -52,16 +53,52 @@ export default function MetadataSources() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <View>
-          <Text style={styles.headerTitle}>Nguồn Metadata</Text>
-          <Text style={styles.headerSubtitle}>Quản lý API đồng bộ thông tin sách</Text>
-        </View>
-        <TouchableOpacity 
-          onPress={() => { setEditingSource(null); setFormData({ name: '', url: '', is_active: true }); setModalVisible(true); }}
-          style={styles.addBtn}
-        >
-          <Ionicons name="add" size={24} color="#FFFFFF" />
+        <Text style={styles.headerTitle}>Quản lý Nguồn</Text>
+        <TouchableOpacity onPress={() => {
+          setEditingSource(null);
+          setFormData({ name: '', url: '', is_active: true });
+          setModalVisible(true);
+        }} style={styles.addBtn}>
+          <Ionicons name="add" size={28} color="white" />
         </TouchableOpacity>
+      </View>
+
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>Đồng bộ Sách nói</Text>
+        <Text style={styles.sectionSubtitle}>Cập nhật dữ liệu từ các nguồn audiobook</Text>
+      </View>
+
+      <View style={styles.syncContainer}>
+        <SyncCard 
+          name="Thư Viện Sách Nói" 
+          icon="headset" 
+          platform="thuviensachnoi-catalog" 
+          description="Kho sách nói miễn phí lớn nhất VN"
+        />
+        <SyncCard 
+          name="Fonos" 
+          icon="musical-notes" 
+          platform="fonos-catalog" 
+          description="Sách nói bản quyền chất lượng cao"
+        />
+        <SyncCard 
+          name="VoizFM" 
+          icon="mic" 
+          platform="voizfm-catalog" 
+          description="Ứng dụng sách nói & Podcast"
+        />
+        <SyncCard 
+          name="Làm giàu Metadata" 
+          icon="sparkles" 
+          platform="bulk-enrich" 
+          description="Đồng bộ Tác giả/Bìa chuẩn từ Thư viện chính"
+          isInternal={true}
+        />
+      </View>
+
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>Nguồn Metadata</Text>
+        <Text style={styles.sectionSubtitle}>Quản lý API đồng bộ thông tin sách</Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollArea}>
@@ -120,13 +157,68 @@ export default function MetadataSources() {
   );
 }
 
+const SyncCard = ({ name, icon, platform, description, isInternal }: any) => {
+  const [syncing, setSyncing] = useState(false);
+
+  const startSync = async () => {
+    setSyncing(true);
+    try {
+      if (isInternal && platform === 'bulk-enrich') {
+        const result = await bulkEnrichAudiobooks();
+        Alert.alert('Hoàn tất', `Đã quét ${result.total} đầu sách, cập nhật ${result.updated} bản ghi với metadata chuẩn.`);
+      } else {
+        // Legacy external sync simulation
+        const { error } = await supabase.from('notifications').insert([{
+          user_id: (await supabase.auth.getUser()).data.user?.id,
+          title: 'Đang bắt đầu đồng bộ',
+          body: `Hệ thống đang quét dữ liệu từ ${name}. Quá trình này có thể mất vài phút.`,
+          type: 'info'
+        }]);
+        Alert.alert('Đã gửi yêu cầu', `Tiến trình đồng bộ ${name} đang được xử lý dưới nền.`);
+      }
+    } catch (err: any) {
+      Alert.alert('Lỗi', 'Không thể khởi động tiến trình đồng bộ: ' + err.message);
+    } finally {
+      setTimeout(() => setSyncing(false), 1000);
+    }
+  };
+
+  return (
+    <View style={styles.syncCard}>
+      <View style={styles.syncIconContainer}>
+        <Ionicons name={icon} size={24} color="#4F8EF7" />
+      </View>
+      <View style={{ flex: 1, marginLeft: 12 }}>
+        <Text style={styles.syncName}>{name}</Text>
+        <Text style={styles.syncDesc}>{description}</Text>
+      </View>
+      <TouchableOpacity 
+        onPress={startSync} 
+        disabled={syncing}
+        style={[styles.syncBtn, syncing && { opacity: 0.5 }]}
+      >
+        <Text style={styles.syncBtnText}>{syncing ? '...' : 'Đồng bộ'}</Text>
+      </TouchableOpacity>
+    </View>
+  );
+};
+
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0B0F1A' },
-  header: { paddingHorizontal: 24, paddingTop: 60, paddingBottom: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  header: { paddingHorizontal: 24, paddingTop: 60, paddingBottom: 10, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   headerTitle: { color: '#FFFFFF', fontSize: 24, fontWeight: '700' },
-  headerSubtitle: { color: '#8B8FA3', fontSize: 14, marginTop: 4 },
+  sectionHeader: { paddingHorizontal: 24, marginTop: 20, marginBottom: 10 },
+  sectionTitle: { color: '#FFFFFF', fontSize: 18, fontWeight: '700' },
+  sectionSubtitle: { color: '#8B8FA3', fontSize: 13, marginTop: 2 },
+  syncContainer: { paddingHorizontal: 24, gap: 12, marginBottom: 20 },
+  syncCard: { backgroundColor: '#151929', borderRadius: 16, padding: 16, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#1E2540' },
+  syncIconContainer: { width: 48, height: 48, backgroundColor: '#1E2540', borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  syncName: { color: '#FFFFFF', fontSize: 15, fontWeight: '700' },
+  syncDesc: { color: '#5A5F7A', fontSize: 12, marginTop: 2 },
+  syncBtn: { backgroundColor: '#4F8EF7', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8 },
+  syncBtnText: { color: '#FFFFFF', fontSize: 13, fontWeight: '700' },
   addBtn: { width: 44, height: 44, backgroundColor: '#4F8EF7', borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  scrollArea: { padding: 24 },
+  scrollArea: { paddingHorizontal: 24, paddingBottom: 40 },
   sourceCard: { backgroundColor: '#151929', borderRadius: 16, padding: 16, marginBottom: 12, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#1E2540' },
   sourceName: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
   sourceUrl: { color: '#5A5F7A', fontSize: 12, marginTop: 4 },

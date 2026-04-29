@@ -2,13 +2,11 @@ name: Audiobook Metadata Scraper
 
 on:
   schedule:
-    # Chạy vào 00:00 hàng ngày (giờ UTC)
     - cron: '0 0 * * *'
   workflow_dispatch:
-    # Cho phép chạy thủ công từ tab Actions
     inputs:
       platform:
-        description: 'Platform to scrape (catalog, fonos, voizfm)'
+        description: 'Platform to scrape'
         required: true
         default: 'catalog'
         type: choice
@@ -16,6 +14,10 @@ on:
           - catalog
           - fonos
           - voizfm
+          - thuviensachnoi-catalog
+          - thuviensachnoi
+  repository_dispatch:
+    types: [trigger-scraper]
 
 jobs:
   scrape:
@@ -40,11 +42,14 @@ jobs:
       - name: Run Scraper
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
         run: |
-          # Nếu chạy thủ công thì dùng input, nếu chạy tự động thì mặc định là 'catalog'
-          PLATFORM=${{ github.event.inputs.platform || 'catalog' }}
-          echo "Starting scraper for: $PLATFORM"
-          npx tsx scratch/metadata-scraper/run-scraper.ts $PLATFORM
+          PLATFORM="${{ github.event.inputs.platform || github.event.client_payload.platform || 'catalog' }}"
+          ARG="${{ github.event.client_payload.arg || '' }}"
+          echo "Starting scraper for: $PLATFORM with arg: $ARG"
+          npx tsx scratch/metadata-scraper/run-scraper.ts "$PLATFORM" "$ARG"
 
       - name: Archive results
         if: always()

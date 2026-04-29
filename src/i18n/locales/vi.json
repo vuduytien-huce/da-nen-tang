@@ -25,12 +25,29 @@
     "days": "ngày",
     "search_placeholder": "Tìm kiếm tên sách, tác giả...",
     "available": "Có sẵn",
-    "borrowed_at": "Mượn ngày"
+    "borrowed_at": "Mượn ngày",
+    "total_borrows": "Tổng mượn"
   },
   "roles": {
     "member": "Thành viên",
     "librarian": "Thủ thư",
-    "admin": "Quản trị viên hỗ trợ"
+    "admin": "Quản trị viên hệ thống"
+  },
+  "admin": {
+    "audit_logs": "Nhật ký hệ thống",
+    "audit_logs_desc": "Giám sát và kiểm soát mọi thao tác quản trị",
+    "table": "Bảng",
+    "record_id": "ID bản ghi",
+    "performer": "Người thực hiện",
+    "action_insert": "THÊM MỚI",
+    "action_update": "CẬP NHẬT",
+    "action_delete": "XÓA",
+    "view_diff": "Xem chi tiết thay đổi",
+    "old_data": "Dữ liệu cũ",
+    "new_data": "Dữ liệu mới",
+    "no_logs": "Không có dữ liệu nhật ký",
+    "system": "Hệ thống",
+    "all_actions": "Tất cả"
   },
   "librarian": {
     "dashboard": "Khu vực Thủ thư",
@@ -83,7 +100,14 @@
     "overdue": "Quá hạn",
     "fine_amount": "Phí phạt",
     "pay_now": "Nộp phạt ngay",
-    "history_tab": "Lịch sử mượn trả"
+    "history_tab": "Lịch sử mượn trả",
+    "notification_settings": "Cài đặt thông báo",
+    "digital_pass": "Thẻ thành viên số",
+    "add_to_wallet": "Thêm vào Ví",
+    "notification_desc": "Tùy chỉnh các loại thông báo bạn muốn nhận trên thiết bị.",
+    "due_date_reminders": "Nhắc nhở hạn trả",
+    "new_arrival_alerts": "Thông báo sách mới",
+    "club_mention_pings": "Nhắc tên trong câu lạc bộ"
   },
   "messages": {
     "borrow_success": "Mượn sách thành công!",
@@ -100,11 +124,60 @@
     "no_history": "Chưa có lịch sử mượn trả",
     "loading": "Đang tải dữ liệu...",
     "book_deleted": "Đã xóa sách khỏi kho",
-    "book_updated": "Đã cập nhật sách thành công"
+    "book_updated": "Đã cập nhật sách thành công",
+    "loading_demand": "Đang tính toán nhu cầu..."
   },
-  "status": {
-    "borrowed": "Đang mượn",
-    "returned": "Đã trả",
-    "overdue": "Quá hạn"
+  "analytics": {
+    "title": "Báo cáo chuyên sâu",
+    "overview": "Tổng quan",
+    "activity": "Hoạt động",
+    "inventory": "Kho sách",
+    "kpi_members": "Thành viên",
+    "kpi_return_rate": "Tỉ lệ trả",
+    "kpi_new_members": "Mới (Tháng)",
+    "kpi_avg_duration": "TB ngày mượn",
+    "genre_trends": "Xu hướng Thể loại",
+    "borrow_density": "Mật độ mượn sách",
+    "peak_hours": "Khung giờ cao điểm",
+    "ai_advice": "AI Advice & Điều phối",
+    "out_of_stock": "Hết hàng",
+    "dead_stock": "Kho chết",
+    "ai_intelligence": "AI & Trí tuệ nhân tạo",
+    "deep_analytics": "Phân tích chuyên sâu",
+    "staff_intelligence": "Trí tuệ quản trị & Phân tích độc giả",
+    "loading_insights": "Đang phân tích dữ liệu chuyên sâu...",
+    "confidence": "Độ tin cậy",
+    "predicted_increase": "Tăng trưởng dự kiến",
+    "advice_inventory": "Đề xuất kho",
+    "advice_transfer": "Đề xuất điều chuyển",
+    "advice_alert": "Cảnh báo kho",
+    "demand_forecast": "Dự báo nhu cầu",
+    "hot_titles": "Tựa sách \"Nóng\"",
+    "velocity": "Vận tốc",
+    "ai_disclaimer": "Dữ liệu được cập nhật dựa trên thời gian thực. Hãy cân nhắc nhập thêm bản sao cho các tựa sách đứng đầu danh sách.",
+    "demand_analysis_desc": "Hệ thống AI phân tích dựa trên {{count}} tựa sách có biến động lớn nhất trong 90 ngày qua.",
+    "run_ai": "Chạy AI"
+  },
+  "player": {
+    "sleep_timer": "Hẹn giờ tắt",
+    "chapters": "Danh sách chương",
+    "speed": "Tốc độ",
+    "timer_off": "Tắt",
+    "minutes": "{{count}} phút"
+  },
+  "social": {
+    "reading_now": "{{count}} người đang đọc cùng bạn",
+    "annotations": "Ghi chú",
+    "share_note": "Chia sẻ ghi chú...",
+    "empty_notes": "Chưa có ghi chú nào.",
+    "sparkles": "Lấp lánh",
+    "mind_blown": "Kinh ngạc"
+  },
+  "a11y": {
+    "qr_hint": "Hiển thị mã QR thành viên để mượn sách tại quầy",
+    "search_hint": "Tìm kiếm theo tên sách, tác giả hoặc thể loại",
+    "achievements_hint": "Nhấn để xem các huy hiệu đã đạt được",
+    "downloads_hint": "Xem và quản lý các sách đã tải về thiết bị",
+    "ai_summary_hint": "Sử dụng AI để xem tóm tắt nội dung chính"
   }
 }

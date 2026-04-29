@@ -1,42 +1,47 @@
-import { useBooks } from './library/useBooks';
-import { useBorrows } from './library/useBorrows';
-import { useStaff } from './library/useStaff';
-import { Book, BorrowRecord } from './library/types';
+import { useMember, useAnnotations, useSocial, useBookClubs } from './library/useMember';
+import { useAdmin } from './library/useAdmin';
+import { useContent } from './library/useContent';
+import { useSystem } from './library/useSystem';
 
-export { Book, BorrowRecord };
+import { Book } from '../features/books/books.types';
 
+export { useMember, useAdmin, useContent, useSystem, useAnnotations, useSocial, useBookClubs };
+export type { Book };
+
+/**
+ * BiblioTech Central Gateway Hook
+ * Aggregates all domain hooks into a single unified API.
+ * Follows the Feature-based Layered Architecture.
+ */
 export function useLibrary() {
-  const { getBooks, addBook, syncBook } = useBooks();
-  const { getMyBorrows, getAllBorrows, borrowBook, returnBook, payFine, approveBorrow, rejectBorrow } = useBorrows();
-  const { searchMembers, appointAssistant } = useStaff();
+  const member = useMember();
+  const admin = useAdmin();
+  const content = useContent();
+  const system = useSystem();
 
-  // Primary Gateway (Standard Pattern)
   return {
-    // 1. Core Data Queries (Direct execution)
-    books: { 
-      list: getBooks, 
-      add: addBook 
-    },
-    borrows: { 
-      list: getMyBorrows, 
-      listAll: getAllBorrows,
-      borrow: borrowBook, 
-      return: returnBook,
-      approve: approveBorrow,
-      reject: rejectBorrow,
-      pay: payFine
-    },
-    staff: { 
-      search: searchMembers, 
-      appoint: appointAssistant 
+    // Member Domain
+    ...member,
+    
+    // Admin Domain (Merging instead of overwriting)
+    admin: { ...admin },
+    
+    // Merge Borrows specifically if they overlap
+    borrows: {
+      ...member.borrows,
+      ...admin.borrows
     },
 
-    // 2. Legacy Support (Direct hooks for existing components)
-    useBooks: getBooks,
-    syncBook: syncBook,
-    useMyBorrows: getMyBorrows,
-    useBorrowBook: () => borrowBook,
-    useReturnBook: () => returnBook,
-    usePayFine: () => payFine
+    // Content Domain
+    ...content,
+    
+    // System Domain
+    ...system,
+
+    // Legacy Support / Direct access
+    useMember,
+    useAdmin,
+    useContent,
+    useSystem
   };
 }

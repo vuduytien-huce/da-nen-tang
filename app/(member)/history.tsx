@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, Image, ActivityIndicator, TouchableOpacity, Modal, Alert } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, Image, ActivityIndicator, TouchableOpacity, Modal, Alert, FlatList } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useLibrary } from '../../src/hooks/useLibrary';
 import { BorrowRecord } from '../../src/hooks/useLibrary';
@@ -58,39 +58,61 @@ export default function HistoryPage() {
         <Text style={styles.title}>{t('member.history_tab')}</Text>
       </View>
 
-      <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
-        {isLoading ? (
-          <ActivityIndicator size="large" color="#4F8EF7" style={{ marginTop: 40 }} />
-        ) : history && history.length > 0 ? (
-          history.map((record: BorrowRecord) => (
-            <View key={record.id} style={styles.card}>
-              <Image source={{ uri: record.book?.cover_url }} style={styles.cover} />
-              <View style={styles.info}>
-                <Text style={styles.bookTitle} numberOfLines={1}>{record.book?.title}</Text>
-                <Text style={styles.dateText}>
-                  {new Date(record.borrowed_at).toLocaleDateString()} - {record.returned_at ? new Date(record.returned_at).toLocaleDateString() : t('common.due') + ': ' + new Date(record.due_date).toLocaleDateString()}
+      <FlatList
+        data={history}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item: record }) => (
+          <View 
+            style={styles.card}
+            accessibilityRole="text"
+            accessibilityLabel={`${record.book?.title}, trạng thái ${record.status}. Mượn ngày ${new Date(record.borrowed_at).toLocaleDateString()}.`}
+          >
+            <Image 
+              source={{ uri: record.book?.cover_url || "https://images.unsplash.com/photo-1543005120-019f2ef5ef73?q=80&w=200" }} 
+              style={styles.cover} 
+              accessibilityLabel={`Bìa sách ${record.book?.title}`}
+            />
+            <View style={styles.info}>
+              <Text style={styles.bookTitle} numberOfLines={1}>{record.book?.title}</Text>
+              <Text style={styles.dateText}>
+                {new Date(record.borrowed_at).toLocaleDateString()} - {record.returned_at ? new Date(record.returned_at).toLocaleDateString() : t('common.due') + ': ' + new Date(record.due_date).toLocaleDateString()}
+              </Text>
+              <View style={[styles.statusBadge, { backgroundColor: getStatusColor(record.status) + '20' }]}>
+                <Text style={[styles.statusText, { color: getStatusColor(record.status) }]}>
+                  {record.status}
                 </Text>
-                <View style={[styles.statusBadge, { backgroundColor: getStatusColor(record.status) + '20' }]}>
-                  <Text style={[styles.statusText, { color: getStatusColor(record.status) }]}>
-                    {record.status}
-                  </Text>
-                </View>
               </View>
-              
-              {(record as any).estimated_fine > 0 && (
-                <TouchableOpacity style={styles.payBtn} onPress={() => handlePay(record)}>
-                  <Text style={styles.payBtnText}>Pay {(record as any).estimated_fine.toLocaleString()}đ</Text>
-                </TouchableOpacity>
-              )}
             </View>
-          ))
-        ) : (
-          <View style={styles.empty}>
-            <Ionicons name="time-outline" size={64} color="#1E2540" />
-            <Text style={styles.emptyText}>{t('messages.no_history')}</Text>
+            
+            {(record as any).estimated_fine > 0 && (
+              <TouchableOpacity 
+                style={styles.payBtn} 
+                onPress={() => handlePay(record)}
+                accessibilityRole="button"
+                accessibilityLabel={`Thanh toán phí phạt ${(record as any).estimated_fine.toLocaleString()} đồng`}
+                accessibilityHint="Nhấn để hiện mã QR thanh toán"
+              >
+                <Text style={styles.payBtnText}>Pay {(record as any).estimated_fine.toLocaleString()}đ</Text>
+              </TouchableOpacity>
+            )}
           </View>
         )}
-      </ScrollView>
+        ListHeaderComponent={isLoading ? <ActivityIndicator size="large" color="#4F8EF7" style={{ marginTop: 40 }} /> : null}
+        ListEmptyComponent={
+          !isLoading ? (
+            <View style={styles.empty} accessibilityLiveRegion="polite">
+              <Ionicons name="time-outline" size={64} color="#1E2540" />
+              <Text style={styles.emptyText}>{t('messages.no_history')}</Text>
+            </View>
+          ) : null
+        }
+        contentContainerStyle={styles.list}
+        showsVerticalScrollIndicator={false}
+        initialNumToRender={10}
+        maxToRenderPerBatch={5}
+        windowSize={5}
+        removeClippedSubviews={true}
+      />
 
       {/* QR Modal */}
       <Modal visible={showQr} transparent animationType="fade">

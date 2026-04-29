@@ -17,43 +17,13 @@ import * as Notifications from "expo-notifications";
 import * as Device from "expo-device";
 import { supabase, isEnvValid } from "../src/api/supabase";
 import { useAuthStore } from "../src/store/useAuthStore";
+import { notifications } from "../src/core/notifications";
 import "../src/i18n";
-
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
+import { AiAssistant } from "../src/features/ai/AiAssistant";
+import ErrorBoundary from "../src/components/ErrorBoundary";
+import { useAccountStatus } from "../src/hooks/useAccountStatus";
 
 const queryClient = new QueryClient();
-
-class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean, error: Error | null }> {
-  constructor(props: { children: React.ReactNode }) {
-    super(props);
-    this.state = { hasError: false, error: null };
-  }
-  static getDerivedStateFromError(error: Error) { return { hasError: true, error }; }
-  componentDidCatch(error: Error, errorInfo: any) { console.error("[CRITICAL ERROR]", error, errorInfo); }
-  render() {
-    if (this.state.hasError) {
-      return (
-        <View style={{ flex: 1, backgroundColor: "#0B0F1A", justifyContent: "center", alignItems: "center", padding: 30 }}>
-          <Ionicons name="alert-circle" size={64} color="#EF4444" />
-          <Text style={{ color: "#FFFFFF", fontSize: 22, fontWeight: "800", marginTop: 24 }}>Hệ thống tạm ngưng</Text>
-          <Text style={{ color: "#8B8FA3", marginTop: 12, textAlign: 'center', lineHeight: 20 }}>{this.state.error?.message || "Lỗi khởi tạo module"}</Text>
-          <TouchableOpacity onPress={() => typeof window !== 'undefined' && window.location.reload()} style={{ backgroundColor: "#4F8EF7", paddingHorizontal: 40, paddingVertical: 14, borderRadius: 14, marginTop: 40 }}>
-            <Text style={{ color: "#FFFFFF", fontWeight: "800" }}>Tải lại</Text>
-          </TouchableOpacity>
-        </View>
-      );
-    }
-    return this.props.children;
-  }
-}
 
 function RootLayoutContent() {
   const initialized = useAuthStore((state) => state.initialized);
@@ -62,6 +32,7 @@ function RootLayoutContent() {
   const segments = useSegments();
   const router = useRouter();
   const { t } = useTranslation();
+  useAccountStatus();
 
   const navigationState = useRootNavigationState();
 
@@ -96,7 +67,23 @@ function RootLayoutContent() {
     }
 
     if (session && profile) {
-      const role = profile.role;
+      // Initialize Notifications for Members
+      if (profile.role === 'MEMBER') {
+        notifications.registerForPushNotificationsAsync().then(token => {
+          if (token) notifications.savePushToken(session.user.id, token);
+        });
+
+        const cleanup = notifications.setupListeners(
+          (notification) => console.log('Notification received:', notification),
+          (response) => {
+            const data = response.notification.request.content.data;
+            if (data?.url) router.push(data.url as any);
+          }
+        );
+        return cleanup;
+      }
+
+      const role = profile.role as any;
       if (role === "ADMIN" && !isAdmin) router.replace("/(admin)");
       else if (role === "LIBRARIAN" && !isLibrarian) router.replace("/(librarian)");
       else if (role === "MEMBER" && !isMember && !isAuth) router.replace("/(member)");
@@ -121,12 +108,18 @@ function RootLayoutContent() {
     <QueryClientProvider client={queryClient}>
       <PaperProvider>
         <View style={{ flex: 1, backgroundColor: "#0B0F1A" }}>
-          <Stack screenOptions={{ headerShown: false }}>
+          <Stack screenOptions={{ 
+            headerShown: false,
+            animation: 'slide_from_right',
+            animationDuration: 300,
+            contentStyle: { backgroundColor: '#0B0F1A' }
+          }}>
             <Stack.Screen name="(auth)" />
             <Stack.Screen name="(member)" />
             <Stack.Screen name="(admin)" />
             <Stack.Screen name="(librarian)" />
           </Stack>
+          {session && profile?.role === 'MEMBER' && <AiAssistant />}
         </View>
       </PaperProvider>
     </QueryClientProvider>

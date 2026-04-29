@@ -147,6 +147,38 @@ export default function LibrarianBooks() {
     }
   };
 
+  const handleMarc21Import = async () => {
+    // Simple MARC21 Regex Parser
+    // Tags: 245$a (Title), 100$a (Author), 082$a (DDC), 090$b (Cutter)
+    Alert.prompt(
+      "Dán nội dung MARC21",
+      "Dán văn bản MARC21 (định dạng mnemonic) vào đây để trích xuất metadata.",
+      [
+        { text: "Hủy", style: "cancel" },
+        { 
+          text: "Trích xuất", 
+          onPress: (text) => {
+            if (!text) return;
+            const titleMatch = text.match(/245.*\$a\s*([^$|\n|/]+)/);
+            const authorMatch = text.match(/100.*\$a\s*([^$|\n]+)/);
+            const ddcMatch = text.match(/082.*\$a\s*(\d+\.?\d*)/);
+            const cutterMatch = text.match(/090.*\$b\s*([A-Z]\d+)/);
+
+            if (isMounted) {
+              setFormData({
+                ...formData,
+                title: titleMatch ? titleMatch[1].trim() : formData.title,
+                author: authorMatch ? authorMatch[1].trim() : formData.author,
+                appendix: `DDC: ${ddcMatch ? ddcMatch[1] : 'N/A'}\nCutter: ${cutterMatch ? cutterMatch[1] : 'N/A'}`
+              });
+              Alert.alert("Thành công", "Đã trích xuất metadata từ MARC21");
+            }
+          }
+        }
+      ]
+    );
+  };
+
   const adjustCopies = (amount: number) => {
     const current = parseInt(formData.total_copies) || 0;
     setFormData({ ...formData, total_copies: String(Math.max(1, current + amount)) });
@@ -246,6 +278,9 @@ export default function LibrarianBooks() {
                   />
                   <TouchableOpacity onPress={handleSync} style={styles.syncBtn}>
                     <Ionicons name="sync" size={20} color="#FFFFFF" />
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={handleMarc21Import} style={[styles.syncBtn, { backgroundColor: '#10B981' }]}>
+                    <Ionicons name="document-text" size={20} color="#FFFFFF" />
                   </TouchableOpacity>
                 </View>
 

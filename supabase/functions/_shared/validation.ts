@@ -7,7 +7,7 @@ export const CreateUserSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
   fullName: z.string().min(2),
-  role: z.enum(['Librarian', 'Admin', 'Member']).default('Member'),
+  role: z.enum(['LIBRARIAN', 'ADMIN', 'MEMBER']).default('MEMBER'),
 });
 
 export type CreateUserDTO = z.infer<typeof CreateUserSchema>;
@@ -18,8 +18,15 @@ export type CreateUserDTO = z.infer<typeof CreateUserSchema>;
 export const UpdateUserSchema = z.object({
   id: z.string().uuid(),
   fullName: z.string().optional(),
-  role: z.enum(['Librarian', 'Admin', 'Member']).optional(),
-  isSuspended: z.boolean().optional(),
+  role: z.enum(['LIBRARIAN', 'ADMIN', 'MEMBER']).optional(),
+  isLocked: z.boolean().optional(),
+});
+
+/**
+ * User Deletion Schema
+ */
+export const DeleteUserSchema = z.object({
+  userId: z.string().uuid(),
 });
 
 /**

@@ -25,12 +25,29 @@
     "days": "days",
     "search_placeholder": "Search title, author...",
     "available": "Available",
-    "borrowed_at": "Borrowed on"
+    "borrowed_at": "Borrowed on",
+    "total_borrows": "Total Borrows"
   },
   "roles": {
     "member": "Member",
     "librarian": "Librarian",
-    "admin": "Admin"
+    "admin": "System Administrator"
+  },
+  "admin": {
+    "audit_logs": "System Audit Logs",
+    "audit_logs_desc": "Monitor and control all administrative actions",
+    "table": "Table",
+    "record_id": "Record ID",
+    "performer": "Performer",
+    "action_insert": "INSERT",
+    "action_update": "UPDATE",
+    "action_delete": "DELETE",
+    "view_diff": "View Detail Changes",
+    "old_data": "Old Data",
+    "new_data": "New Data",
+    "no_logs": "No audit data found",
+    "system": "System",
+    "all_actions": "All"
   },
   "librarian": {
     "dashboard": "Librarian Dashboard",
@@ -69,56 +86,80 @@
     "cover_image_url": "COVER IMAGE URL",
     "saving": "SAVING...",
     "update_changes": "UPDATE CHANGES",
-    "confirm_add_new": "CONFIRM ADD NEW",
-    "tasks": {
-      "phase1": "Phase 1: Database & Hooks (Backend)",
-      "phase1_1": "Tạo SQL RPC `return_book` (ISBN based + 5k fine)",
-      "phase1_2": "Tạo SQL RPC `pay_fine` (Auto-clear vs Cash)",
-      "phase1_3": "Cập nhật `useLibrary.ts` (useReturnBook, usePayFine)",
-      "phase2": "Phase 2: Librarian Experience (Return & Cash)",
-      "phase2_1": "Thêm nút \"Scan to Return\" vào Dashboard",
-      "phase2_2": "Implement logic Quét mã ISBN và gọi RPC trả sách",
-      "phase2_3": "Thêm danh sách \"Pending Fines\" và nút xác nhận tiền mặt",
-      "phase3": "Phase 3: Member Experience (Fine & QR)",
-      "phase3_1": "Cập nhật UI hiển thị sách quá hạn màu Đỏ",
-      "phase3_2": "Tích hợp tính năng \"Nộp phạt\" mở Modal VietQR",
-      "phase3_3": "Xử lý logic Auto-clear sau khi hoàn tất QR"
-    }
+    "confirm_add_new": "CONFIRM ADD NEW"
   },
   "member": {
-    "my_borrows": "My Active Borrows",
-    "discover": "Discover Catalog",
-    "pay_fine": "Pay Late Fee",
-    "pay_fine_desc": "Scan VietQR code below to pay",
+    "my_borrows": "My Borrows",
+    "discover": "Discover Books",
+    "pay_fine": "Pay Fines",
+    "pay_fine_desc": "Please scan the VietQR code below",
     "confirm_borrow_title": "Confirm Borrow",
     "confirm_borrow_msg": "Borrow \"{{title}}\"?",
     "available": "{{count}} available",
-    "out_of_stock": "Out of stock",
+    "out_of_stock": "Out of Stock",
     "overdue": "Overdue",
-    "fine_amount": "Late Fee",
+    "fine_amount": "Fine Amount",
     "pay_now": "Pay Now",
-    "history_tab": "Borrowing History"
+    "history_tab": "History",
+    "notification_settings": "Notification Settings",
+    "digital_pass": "Digital Membership",
+    "add_to_wallet": "Add to Wallet",
+    "notification_desc": "Customize the type of alerts you want to receive on this device.",
+    "due_date_reminders": "Due Date Reminders",
+    "new_arrival_alerts": "New Arrival Alerts",
+    "club_mention_pings": "Club Mention Pings"
   },
-  "messages": {
-    "borrow_success": "Book borrowed successfully!",
-    "return_success": "Book returned successfully!",
-    "book_added": "Book added to inventory!",
-    "payment_success": "Payment successful!",
-    "book_not_found": "Book information not found",
-    "no_data": "No data available",
-    "camera_permission_denied": "Camera permission is required",
-    "not_enough_stock": "Insufficient stock (Min 3 required).",
-    "admin_borrow_limit": "Admins can borrow up to 10 books.",
-    "member_borrow_limit": "Members can borrow up to 4 books.",
-    "no_results": "No results found matching your query",
-    "no_history": "No borrowing history available",
-    "loading": "Loading data...",
-    "book_deleted": "Book deleted from inventory",
-    "book_updated": "Book updated successfully"
+  "analytics": {
+    "title": "Deep Analytics",
+    "overview": "Overview",
+    "activity": "Activity",
+    "inventory": "Inventory",
+    "kpi_members": "Active Members",
+    "kpi_return_rate": "Return Rate",
+    "kpi_new_members": "New (Month)",
+    "kpi_avg_duration": "Avg Duration",
+    "genre_trends": "Genre Trends",
+    "borrow_density": "Borrow Density",
+    "peak_hours": "Peak Hours",
+    "ai_advice": "AI Advice & Logistics",
+    "out_of_stock": "Out of Stock",
+    "dead_stock": "Dead Stock",
+    "ai_intelligence": "AI & Intelligence",
+    "deep_analytics": "Deep Analytics",
+    "staff_intelligence": "Staff Intelligence & Reader Analysis",
+    "loading_insights": "Analyzing deep data...",
+    "confidence": "Confidence",
+    "predicted_increase": "Predicted Increase",
+    "advice_inventory": "Inventory Advice",
+    "advice_transfer": "Transfer Advice",
+    "advice_alert": "Stock Alert",
+    "demand_forecast": "Demand Forecast",
+    "hot_titles": "Hot Titles",
+    "velocity": "Velocity",
+    "ai_disclaimer": "Data is updated in real-time. Consider acquiring more copies for titles at the top of the list.",
+    "demand_analysis_desc": "AI system analyzed {{count}} titles with the highest volatility in the last 90 days.",
+    "run_ai": "Run AI"
   },
-  "status": {
-    "borrowed": "Borrowed",
-    "returned": "Returned",
-    "overdue": "Overdue"
+  "player": {
+    "sleep_timer": "Sleep Timer",
+    "chapters": "Chapters",
+    "speed": "Speed",
+    "timer_off": "Off",
+    "minutes": "{{count}} mins"
+  },
+  "social": {
+    "reading_now": "{{count}} people reading with you",
+    "annotations": "Annotations",
+    "share_note": "Share a note...",
+    "empty_notes": "No annotations yet.",
+    "sparkles": "Sparkles",
+    "mind_blown": "Mind Blown"
+  },
+  "a11y": {
+    "qr_hint": "Display member QR code for counter checkout",
+    "search_hint": "Search by title, author, or genre",
+    "achievements_hint": "Tap to see earned badges and level",
+    "downloads_hint": "Manage books downloaded to device",
+    "ai_summary_hint": "Use BiblioAI to see a 3-minute summary"
   }
 }

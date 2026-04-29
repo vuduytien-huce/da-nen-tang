@@ -11,7 +11,7 @@ import path from 'path';
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
 const pool = new Pool({
-  connectionString: `postgresql://postgres.objzfxyenfkxvfjmqrcj:${process.env.DATABASE_URL?.split(':')[2].split('@')[0]}@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1`,
+  connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false },
 });
 

@@ -4,10 +4,9 @@
     "strict": true,
     "resolveJsonModule": true,
     "esModuleInterop": true,
+    "jsx": "react-native",
     "paths": {
-      "@/*": [
-        "./*"
-      ]
+      "@/*": ["./*"]
     }
   },
   "include": [

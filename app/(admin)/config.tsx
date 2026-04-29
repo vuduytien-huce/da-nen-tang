@@ -1,9 +1,16 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import React from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useConfig } from '../../src/hooks/library/useConfig';
-import { LinearGradient } from 'expo-linear-gradient';
 
 export default function AdminConfig() {
   const { getConfig, updateConfig } = useConfig();
@@ -16,8 +23,8 @@ export default function AdminConfig() {
       `Nhập giá trị mới cho ${label}:`,
       [
         { text: 'Hủy', style: 'cancel' },
-        { 
-          text: 'Lưu', 
+        {
+          text: 'Lưu',
           onPress: async (value) => {
             if (!value) return;
             try {
@@ -26,11 +33,11 @@ export default function AdminConfig() {
             } catch (err: any) {
               Alert.alert('Lỗi', err.message);
             }
-          } 
-        }
+          },
+        },
       ],
       'plain-text',
-      config?.[key] || ''
+      config?.[key] || '',
     );
   };
 
@@ -43,10 +50,34 @@ export default function AdminConfig() {
   }
 
   const configItems = [
-    { key: 'fine_rate', label: 'Phí phạt mỗi ngày', unit: 'VNĐ', icon: 'cash-outline', color: '#F59E0B' },
-    { key: 'member_due_days', label: 'Hạn mượn (Độc giả)', unit: 'Ngày', icon: 'calendar-outline', color: '#4F8EF7' },
-    { key: 'admin_due_days', label: 'Hạn mượn (Thủ thư/AD)', unit: 'Ngày', icon: 'time-outline', color: '#10B981' },
-    { key: 'max_books', label: 'Số sách mượn tối đa', unit: 'Cuốn', icon: 'book-outline', color: '#A855F7' },
+    {
+      key: 'fine_rate',
+      label: 'Phí phạt mỗi ngày',
+      unit: 'VNĐ',
+      icon: 'cash-outline',
+      color: '#F59E0B',
+    },
+    {
+      key: 'member_due_days',
+      label: 'Hạn mượn (Độc giả)',
+      unit: 'Ngày',
+      icon: 'calendar-outline',
+      color: '#4F8EF7',
+    },
+    {
+      key: 'admin_due_days',
+      label: 'Hạn mượn (Thủ thư/AD)',
+      unit: 'Ngày',
+      icon: 'time-outline',
+      color: '#10B981',
+    },
+    {
+      key: 'max_books',
+      label: 'Số sách mượn tối đa',
+      unit: 'Cuốn',
+      icon: 'book-outline',
+      color: '#A855F7',
+    },
   ];
 
   return (
@@ -54,23 +85,35 @@ export default function AdminConfig() {
       <ScrollView contentContainerStyle={styles.scroll}>
         <View style={styles.header}>
           <Text style={styles.title}>Cấu hình Hệ thống</Text>
-          <Text style={styles.subtitle}>Thiết lập các tham số vận hành thư viện</Text>
+          <Text style={styles.subtitle}>
+            Thiết lập các tham số vận hành thư viện
+          </Text>
         </View>
 
         <View style={styles.section}>
           {configItems.map((item) => (
-            <TouchableOpacity 
-              key={item.key} 
+            <TouchableOpacity
+              key={item.key}
               style={styles.configCard}
               onPress={() => handleUpdate(item.key, item.label)}
             >
-              <View style={[styles.iconContainer, { backgroundColor: item.color + '20' }]}>
-                <Ionicons name={item.icon as any} size={24} color={item.color} />
+              <View
+                style={[
+                  styles.iconContainer,
+                  { backgroundColor: item.color + '20' },
+                ]}
+              >
+                <Ionicons
+                  name={item.icon as any}
+                  size={24}
+                  color={item.color}
+                />
               </View>
               <View style={styles.info}>
                 <Text style={styles.label}>{item.label}</Text>
                 <Text style={styles.value}>
-                  {Number(config?.[item.key]).toLocaleString() || '---'} {item.unit}
+                  {Number(config?.[item.key]).toLocaleString() || '---'}{' '}
+                  {item.unit}
                 </Text>
               </View>
               <Ionicons name="create-outline" size={20} color="#5A5F7A" />
@@ -81,11 +124,20 @@ export default function AdminConfig() {
         <View style={styles.warningBox}>
           <Ionicons name="information-circle" size={20} color="#4F8EF7" />
           <Text style={styles.warningText}>
-            Các thay đổi này sẽ áp dụng ngay lập tức cho toàn bộ các giao dịch mượn sách mới.
+            Các thay đổi này sẽ áp dụng ngay lập tức cho toàn bộ các giao dịch
+            mượn sách mới.
           </Text>
         </View>
 
-        <TouchableOpacity style={styles.resetBtn} onPress={() => Alert.alert('Thông báo', 'Tính năng đặt lại mặc định đang phát triển')}>
+        <TouchableOpacity
+          style={styles.resetBtn}
+          onPress={() =>
+            Alert.alert(
+              'Thông báo',
+              'Tính năng đặt lại mặc định đang phát triển',
+            )
+          }
+        >
           <Text style={styles.resetText}>Đặt lại mặc định</Text>
         </TouchableOpacity>
       </ScrollView>
@@ -178,5 +230,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     textDecorationLine: 'underline',
-  }
+  },
 });
