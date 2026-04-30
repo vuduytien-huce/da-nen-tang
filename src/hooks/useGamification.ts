@@ -38,27 +38,38 @@ export function useGamification(userId: string) {
 
     fetchStats();
 
-    // Subscribe to profile changes
-    const channel = supabase
-      .channel(`profile:${userId}`)
-      .on('postgres_changes', { 
-        event: 'UPDATE', 
-        schema: 'public', 
-        table: 'profiles',
-        filter: `id=eq.${userId}`
-      }, (payload) => {
-        const xp = payload.new.xp || 0;
-        const level = payload.new.level || 1;
-        setStats({
-          points: xp,
-          level: level,
-          currentLevelXP: xp % 1000,
-          nextLevelXP: 1000
-        });
-      })
-      .subscribe();
+    // 2. Real-time listener for XP/Level updates
+    const channelId = `gamification_${userId}_${Math.random().toString(36).substring(7)}`;
+    const channel = supabase.channel(channelId);
+
+    channel
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'profiles',
+          filter: `id=eq.${userId}`,
+        },
+        (payload) => {
+          const xp = payload.new.xp || 0;
+          const level = payload.new.level || 1;
+          setStats({
+            points: xp,
+            level: level,
+            currentLevelXP: xp % 1000,
+            nextLevelXP: 1000
+          });
+        }
+      )
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log(`[useGamification] Subscribed to channel: ${channelId}`);
+        }
+      });
 
     return () => {
+      console.log(`[useGamification] Cleaning up channel: ${channelId}`);
       supabase.removeChannel(channel);
     };
   }, [userId]);

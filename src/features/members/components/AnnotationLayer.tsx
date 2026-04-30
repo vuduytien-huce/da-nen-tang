@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Modal, ActivityIndicator } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
-import { useAnnotations, Annotation } from '../hooks/library/useAnnotations';
+import { useAnnotations } from '../../../hooks/library/useMember';
+import { Annotation } from '../members.types';
 
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -35,7 +36,7 @@ export default function AnnotationLayer({ isVisible, onClose, bookIsbn, bookTitl
     <View key={item.id} style={[styles.card, { borderLeftColor: item.color }]}>
       <View style={styles.cardHeader}>
         <View style={styles.userInfo}>
-          <Text style={styles.userName}>{item.profiles?.full_name || 'Độc giả'}</Text>
+          <Text style={styles.userName}>{item.user?.fullName || 'Độc giả'}</Text>
           <Text style={styles.time}>{new Date(item.created_at).toLocaleDateString('vi-VN')}</Text>
         </View>
         <TouchableOpacity onPress={() => deleteAnnotation(item.id)}>

@@ -43,10 +43,10 @@ export default function LogisticsPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['inventory_transfers'] });
-      Alert.alert('Thành công', 'Trạng thái vận chuyển đã được cập nhật.');
+      Alert.alert(t('common.success'), t('logistics.update_success'));
     },
     onError: (err) => {
-      Alert.alert('Lỗi', err.message);
+      Alert.alert(t('common.error'), err.message);
     }
   });
 
@@ -75,8 +75,8 @@ export default function LogisticsPage() {
       <LinearGradient colors={['#1E2540', '#171B2B']} style={styles.cardGradient}>
         <View style={styles.cardHeader}>
           <View style={styles.bookInfo}>
-            <Text style={styles.bookTitle}>{item.book?.title || 'Đang tải...'}</Text>
-            <Text style={styles.isbnText}>ISBN: {item.book_isbn}</Text>
+            <Text style={styles.bookTitle}>{item.book?.title || t('common.loading')}</Text>
+            <Text style={styles.isbnText}>{t('common.isbn')}: {item.book_isbn}</Text>
           </View>
           <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) + '20', borderColor: getStatusColor(item.status) }]}>
             <Ionicons name={getStatusIcon(item.status)} size={12} color={getStatusColor(item.status)} />
@@ -101,14 +101,14 @@ export default function LogisticsPage() {
         </View>
 
         <View style={styles.footer}>
-          <Text style={styles.quantityText}>Số lượng: <Text style={styles.bold}>{item.quantity}</Text></Text>
+          <Text style={styles.quantityText}>{t('logistics.transfer_quantity')}<Text style={styles.bold}>{item.quantity}</Text></Text>
           <View style={styles.actions}>
             {item.status === 'PENDING' && (
               <TouchableOpacity 
                 style={styles.actionBtn} 
                 onPress={() => updateStatus.mutate({ id: item.id, status: 'SHIPPING' })}
               >
-                <Text style={styles.actionBtnText}>BẮT ĐẦU GIAO</Text>
+                <Text style={styles.actionBtnText}>{t('logistics.start_shipping')}</Text>
               </TouchableOpacity>
             )}
             {item.status === 'SHIPPING' && (
@@ -116,7 +116,7 @@ export default function LogisticsPage() {
                 style={[styles.actionBtn, styles.successBtn]} 
                 onPress={() => completeMutation.mutate(item.id)}
               >
-                <Text style={styles.actionBtnText}>HOÀN TẤT</Text>
+                <Text style={styles.actionBtnText}>{t('logistics.complete_shipping')}</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -151,7 +151,7 @@ export default function LogisticsPage() {
         {executeMutation.isPending ? (
           <ActivityIndicator size="small" color="white" />
         ) : (
-          <Text style={styles.executeBtnText}>ĐIỀU PHỐI {item.quantity} CUỐN</Text>
+          <Text style={styles.executeBtnText}>{t('logistics.execute_transfer', { count: item.quantity })}</Text>
         )}
       </TouchableOpacity>
     </View>
@@ -161,7 +161,7 @@ export default function LogisticsPage() {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" />
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Hệ Thống Logistics</Text>
+        <Text style={styles.headerTitle}>{t('logistics.title')}</Text>
         <TouchableOpacity onPress={() => refetch()} style={styles.refreshBtn}>
           <Ionicons name="refresh" size={20} color="#FFFFFF" />
         </TouchableOpacity>
@@ -175,13 +175,13 @@ export default function LogisticsPage() {
             
             <View style={styles.sectionHeader}>
               <Ionicons name="bulb-outline" size={20} color="#4F8EF7" />
-              <Text style={styles.sectionTitle}>Gợi ý từ BiblioAI</Text>
+              <Text style={styles.sectionTitle}>{t('logistics.ai_suggestions')}</Text>
             </View>
 
             {isAiLoading ? (
               <View style={styles.suggestionLoading}>
                 <ActivityIndicator color="#4F8EF7" />
-                <Text style={styles.loadingText}>Đang phân tích tồn kho...</Text>
+                <Text style={styles.loadingText}>{t('logistics.loading_ai')}</Text>
               </View>
             ) : (
               <FlatList
@@ -191,13 +191,13 @@ export default function LogisticsPage() {
                 keyExtractor={(item, idx) => idx.toString()}
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.suggestionList}
-                ListEmptyComponent={<Text style={styles.emptyText}>Không có gợi ý nào vào lúc này.</Text>}
+                ListEmptyComponent={<Text style={styles.emptyText}>{t('logistics.empty_ai_suggestions')}</Text>}
               />
             )}
 
             <View style={styles.sectionHeader}>
               <Ionicons name="list-outline" size={20} color="#FFFFFF" />
-              <Text style={styles.sectionTitle}>Lịch sử điều phối</Text>
+              <Text style={styles.sectionTitle}>{t('logistics.history')}</Text>
             </View>
           </View>
         )}
@@ -205,12 +205,12 @@ export default function LogisticsPage() {
         keyExtractor={item => item.id}
         contentContainerStyle={styles.list}
         ListEmptyComponent={
-          !isLoading && (
+          !isLoading ? (
             <View style={styles.empty}>
               <Ionicons name="cube-outline" size={64} color="#1E2540" />
-              <Text style={styles.emptyText}>Chưa có lệnh điều chuyển nào.</Text>
+              <Text style={styles.emptyText}>{t('logistics.empty_transfers')}</Text>
             </View>
-          )
+          ) : null
         }
       />
     </SafeAreaView>

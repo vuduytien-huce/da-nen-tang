@@ -110,11 +110,11 @@ export default function ClubDetailScreen() {
             <View style={[styles.messageRow, isMe && styles.myMessageRow]}>
               {!isMe && (
                 <View style={styles.avatarMini}>
-                  <Text style={styles.avatarText}>{item.profiles?.full_name?.charAt(0) || 'U'}</Text>
+                  <Text style={styles.avatarText}>{item.profiles?.fullName?.charAt(0) || 'U'}</Text>
                 </View>
               )}
               <View style={[styles.messageContent, isMe && styles.myMessageContent]}>
-                {!isMe && <Text style={styles.senderName}>{item.profiles?.full_name}</Text>}
+                {!isMe && <Text style={styles.senderName}>{item.profiles?.fullName}</Text>}
                 <LinearGradient
                   colors={isMe ? ['#4F8EF7', '#3A75F2'] : ['#1E2540', '#171B2B']}
                   start={{ x: 0, y: 0 }}

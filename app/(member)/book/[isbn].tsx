@@ -3,23 +3,23 @@ import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, TextInput,
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useQueryClient } from '@tanstack/react-query';
-import { useLibrary } from '../../../src/hooks/useLibrary';
-import { useAuthStore } from '../../../src/store/useAuthStore';
-import { useAccountStatus } from '../../../src/hooks/useAccountStatus';
+import { useLibrary } from '@/src/hooks/useLibrary';
+import { useAuthStore } from '@/src/store/useAuthStore';
+import { useAccountStatus } from '@/src/hooks/useAccountStatus';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
-import { PDFReader } from '../../../src/components/PDFReader';
-import { SimilarBooks } from '../../../src/components/SimilarBooks';
-import { ai } from '../../../src/core/ai';
-import { AiSummaryModal } from '../../../src/components/AiSummaryModal';
-import { DownloadButton } from '../../../src/components/DownloadButton';
-import { useReadingRoom } from '../../../src/hooks/library/useReadingRoom';
-import { useAnnotations } from '../../../src/hooks/library/useAnnotations';
-import { FloatingReaction } from '../../../src/components/FloatingReaction';
-import { sync } from '../../../src/core/sync';
+import { PDFReader } from '@/src/features/books/components/PDFReader';
+import { SimilarBooks } from '@/src/features/books/components/SimilarBooks';
+import { ai } from '@/src/core/ai';
+import { AiSummaryModal } from '@/src/features/ai/AiSummaryModal';
+import { DownloadButton } from '@/src/features/members/components/DownloadButton';
+import { useReadingRoom } from '@/src/hooks/library/useReadingRoom';
+import { useAnnotations } from '@/src/hooks/library/useMember';
+import { FloatingReaction } from '@/src/features/members/components/FloatingReaction';
+import { sync } from '@/src/core/sync';
 import NetInfo from '@react-native-community/netinfo';
-import { haptics } from '../../../src/core/haptics';
-import AnnotationLayer from '../../../src/components/AnnotationLayer';
+import { haptics } from '@/src/core/haptics';
+import AnnotationLayer from '@/src/features/members/components/AnnotationLayer';
 
 const { width } = Dimensions.get('window');
 
@@ -31,9 +31,9 @@ export default function BookDetailPage() {
   const { isLocked, lockReason } = useAccountStatus();
   
   const { data: book, isLoading: isBookLoading } = books.getByIsbn(isbn!);
-  const { data: bookReviews, isLoading: isReviewsLoading } = reviews(isbn).list();
+  const { data: bookReviews, isLoading: isReviewsLoading } = reviews.list(isbn!);
   const { data: similarBooks } = books.getSimilar((book as any)?.embedding, isbn!);
-  const addReview = reviews(isbn).add;
+  const { mutate: postReview } = reviews.add;
 
   const [userRating, setUserRating] = useState(0);
   const [comment, setComment] = useState('');
@@ -51,28 +51,6 @@ export default function BookDetailPage() {
   const [isAddingAnnotation, setIsAddingAnnotation] = useState(false);
   const [showAnnotationLayer, setShowAnnotationLayer] = useState(false);
 
-  const handleSummarize = async () => {
-    if (aiSummary) {
-      setShowAiSummary(true);
-      return;
-    }
-    
-    setIsSummarizing(true);
-    setShowAiSummary(true);
-    try {
-      const summary = await ai.summarizeBook(
-        book.title,
-        book.author || 'Chưa rõ',
-        book.description || 'Không có mô tả'
-      );
-      setAiSummary(summary);
-    } catch (error) {
-      Alert.alert('Lỗi', 'Không thể tạo tóm tắt vào lúc này. Vui lòng thử lại sau.');
-      setShowAiSummary(false);
-    } finally {
-      setIsSummarizing(false);
-    }
-  };
 
   const handleSubmitReview = async () => {
     if (!profile) {
@@ -86,9 +64,8 @@ export default function BookDetailPage() {
     
     setIsSubmitting(true);
     try {
-      await addReview.mutateAsync({
+      await (postReview as any).mutateAsync({
         book_isbn: isbn!,
-        user_id: profile.id,
         rating: userRating,
         comment: comment.trim(),
       });
@@ -235,7 +212,7 @@ export default function BookDetailPage() {
                   <View style={styles.avatarStack}>
                     {readers.slice(0, 3).map((reader, idx) => (
                       <View key={idx} style={[styles.stackAvatar, { zIndex: 10 - idx, marginLeft: idx === 0 ? 0 : -10 }]}>
-                        <Image source={{ uri: reader.avatar_url || `https://ui-avatars.com/api/?name=${reader.full_name}` }} style={styles.stackAvatarImg} />
+                        <Image source={{ uri: reader.avatarUrl || `https://ui-avatars.com/api/?name=${reader.fullName}` }} style={styles.stackAvatarImg} />
                       </View>
                     ))}
                     {liveCount > 3 && (
@@ -340,11 +317,11 @@ export default function BookDetailPage() {
                     <View key={note.id} style={styles.annotationItem}>
                       <View style={styles.annotationHeader}>
                         <Image 
-                          source={{ uri: note.profiles?.avatar_url || `https://ui-avatars.com/api/?name=${note.profiles?.full_name}` }} 
+                          source={{ uri: note.user?.avatarUrl || `https://ui-avatars.com/api/?name=${note.user?.fullName}` }} 
                           style={styles.annotationAvatar} 
                         />
                         <View style={styles.annotationInfo}>
-                          <Text style={styles.annotationUser}>{note.profiles?.full_name}</Text>
+                          <Text style={styles.annotationUser}>{note.user?.fullName}</Text>
                           <Text style={styles.annotationDate}>
                             {new Date(note.created_at).toLocaleDateString('vi-VN')}
                           </Text>
@@ -644,11 +621,11 @@ export default function BookDetailPage() {
                   <View style={styles.reviewerInfo}>
                     <View style={styles.avatarPlaceholder}>
                       <Text style={styles.avatarText}>
-                        {(review as any).profiles?.full_name?.charAt(0) || 'U'}
+                        {(review as any).profiles?.fullName?.charAt(0) || 'U'}
                       </Text>
                     </View>
                     <View>
-                      <Text style={styles.reviewerName}>{(review as any).profiles?.full_name || 'Người dùng ẩn danh'}</Text>
+                      <Text style={styles.reviewerName}>{(review as any).profiles?.fullName || 'Người dùng ẩn danh'}</Text>
                       <Text style={styles.reviewDate}>
                         {new Date(review.created_at).toLocaleDateString('vi-VN')}
                       </Text>
@@ -829,8 +806,18 @@ const styles = StyleSheet.create({
   borrowBtn: { backgroundColor: '#3A75F2', height: 56, borderRadius: 16, alignItems: 'center', justifyContent: 'center', shadowColor: '#3A75F2', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 5 },
   pdfBtn: { backgroundColor: '#10B981', height: 56, borderRadius: 16, alignItems: 'center', justifyContent: 'center', marginTop: 12, flexDirection: 'row' },
   borrowBtnText: { color: 'white', fontWeight: '800', fontSize: 16 },
-  aiSummaryBtn: { height: 56, borderRadius: 16, overflow: 'hidden', marginTop: 12 },
-  aiSummaryBtnGradient: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
+  aiSummaryBtn: {
+    height: 54,
+    borderRadius: 16,
+    overflow: 'hidden',
+    marginTop: 12,
+  },
+  aiSummaryBtnGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: '100%',
+  },
   metaGrid: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 24, gap: 16 },
   metaItem: { width: '45%', backgroundColor: '#151929', padding: 12, borderRadius: 12, borderWidth: 1, borderColor: '#1E2540' },
   metaLabel: { color: '#5A5F7A', fontSize: 11, fontWeight: '700', textTransform: 'uppercase' },
@@ -1108,5 +1095,11 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     overflow: 'hidden',
     marginTop: 12,
+  },
+  aiGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: '100%',
   },
 });

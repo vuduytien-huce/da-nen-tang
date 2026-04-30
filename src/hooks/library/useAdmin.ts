@@ -64,9 +64,30 @@ export function useAdmin() {
   });
 
   return {
-    borrows: { getAllBorrows, approveBorrow, rejectBorrow },
+    borrows: { 
+      listAll: getAllBorrows, 
+      approve: approveBorrow, 
+      reject: rejectBorrow 
+    },
     staff: { searchMembers },
     analytics: { getAnalytics, getMonthlyStats },
-    logistics: { getLogisticsSuggestions, executeTransfer }
+    logistics: {
+      getTransfers: () => useQuery({
+        queryKey: ['inventory_transfers'],
+        queryFn: () => adminService.getAllTransfers(),
+      }),
+      getAiSuggestions: () => useQuery({
+        queryKey: ['logistics_suggestions'],
+        queryFn: () => adminService.getAIRedistributionSuggestions(),
+      }),
+      executeTransfer,
+      completeTransfer: useMutation({
+        mutationFn: (id: string) => adminService.completeTransfer(id),
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: ['inventory_transfers'] });
+          queryClient.invalidateQueries({ queryKey: ['books'] });
+        }
+      })
+    }
   };
 }

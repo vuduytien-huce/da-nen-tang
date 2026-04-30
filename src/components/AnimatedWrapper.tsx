@@ -1,5 +1,6 @@
 import React from 'react';
 import Animated, { 
+  FadeIn,
   FadeInDown, 
   FadeInRight, 
   FadeOut, 
@@ -9,14 +10,14 @@ import Animated, {
   withTiming,
   Layout
 } from 'react-native-reanimated';
-import { Pressable, ViewStyle } from 'react-native';
+import { Pressable, ViewStyle, StyleProp } from 'react-native';
 
 interface AnimatedWrapperProps {
   children: React.ReactNode;
   index?: number;
-  type?: 'fade' | 'slide-down' | 'slide-right';
+  type?: 'fade' | 'slide-down' | 'slide-right' | 'scale';
   delay?: number;
-  style?: ViewStyle;
+  style?: StyleProp<ViewStyle>;
   onPress?: () => void;
   scaleOnPress?: boolean;
 }
@@ -52,6 +53,8 @@ export const AnimatedWrapper: React.FC<AnimatedWrapperProps> = ({
     switch (type) {
       case 'fade':
         return FadeInDown.delay(index * delay).duration(500);
+      case 'scale':
+        return FadeIn.delay(index * delay).duration(400);
       case 'slide-right':
         return FadeInRight.delay(index * delay).springify();
       case 'slide-down':

@@ -63,7 +63,7 @@ export default function SecurityLogScreen() {
             </View>
 
             <Text style={styles.actorText}>
-              By: <Text style={styles.actorName}>{item.actor?.full_name || 'System'}</Text> 
+              By: <Text style={styles.actorName}>{item.actor?.fullName || 'System'}</Text> 
               <Text style={styles.roleTag}> ({item.actor?.role})</Text>
             </Text>
 

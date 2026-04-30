@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { membersService, DownloadedFile } from '../members.service';
+import { membersService } from '../members.service';
+import { DownloadedFile } from '../members.types';
 import { haptics } from '../../../core/haptics';
 
 interface DownloadButtonProps {
@@ -22,7 +23,7 @@ export const DownloadButton: React.FC<DownloadButtonProps> = ({ id, title, url, 
 
   const checkStatus = async () => {
     const downloads = await membersService.getDownloads();
-    const file = downloads.find(d => d.id === id && d.type === type);
+    const file = downloads.find((d: DownloadedFile) => d.id === id && d.type === type);
     setDownloadedFile(file || null);
   };
 

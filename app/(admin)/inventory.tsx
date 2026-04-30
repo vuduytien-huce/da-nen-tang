@@ -6,8 +6,10 @@ import { supabase } from '../../src/api/supabase';
 import { useAuthStore } from '../../src/store/useAuthStore';
 import { logisticsService } from '../../src/services/logisticsService';
 import { Alert } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 export default function AdminInventory() {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [isAnalyzing, setIsAnalyzing] = React.useState(false);
 
@@ -56,7 +58,7 @@ export default function AdminInventory() {
       if (error) throw error;
       refetchSuggestions();
     } catch (err: any) {
-      Alert.alert('Lỗi', 'AI Analysis failed: ' + err.message);
+      Alert.alert(t('common.error'), t('admin.ai_analysis_failed') + ': ' + err.message);
     } finally {
       setIsAnalyzing(false);
     }
@@ -67,7 +69,7 @@ export default function AdminInventory() {
     mutationFn: async (suggestion: any) => {
       const { book_isbn, metadata } = suggestion;
       if (!metadata?.from_branch_id || !metadata?.to_branch_id) {
-        throw new Error('Thiếu thông tin chi nhánh điều phối');
+        throw new Error(t('admin.transfer_failed'));
       }
       
       const userId = useAuthStore.getState().profile?.id;
@@ -83,16 +85,16 @@ export default function AdminInventory() {
     },
     onSuccess: (data: any) => {
       if (data.success) {
-        Alert.alert('Thành công', 'Đã điều phối sách thành công!');
+        Alert.alert(t('common.success'), t('admin.transfer_success'));
         queryClient.invalidateQueries({ queryKey: ['inventory_stats'] });
         queryClient.invalidateQueries({ queryKey: ['admin_branches'] });
         refetchSuggestions();
       } else {
-        Alert.alert('Lỗi', data.error || 'Điều phối thất bại');
+        Alert.alert(t('common.error'), data.error || t('admin.transfer_failed'));
       }
     },
     onError: (error: any) => {
-      Alert.alert('Lỗi', error.message);
+      Alert.alert(t('common.error'), error.message);
     }
   });
 
@@ -119,12 +121,12 @@ export default function AdminInventory() {
       {item.metadata?.quantity && (
         <View style={{ flexDirection: 'row', marginTop: 16, alignItems: 'center' }}>
           <View style={{ flex: 1, backgroundColor: '#0B0F1A', padding: 12, borderRadius: 12, marginRight: 8 }}>
-            <Text style={{ color: '#8B8FA3', fontSize: 10, textTransform: 'uppercase' }}>From</Text>
+            <Text style={{ color: '#8B8FA3', fontSize: 10, textTransform: 'uppercase' }}>{t('common.from')}</Text>
             <Text style={{ color: '#FFFFFF', fontSize: 12, fontWeight: '700', marginTop: 2 }}>{item.metadata.from_branch}</Text>
           </View>
           <Ionicons name="arrow-forward" size={16} color="#4F8EF7" />
           <View style={{ flex: 1, backgroundColor: '#0B0F1A', padding: 12, borderRadius: 12, marginLeft: 8 }}>
-            <Text style={{ color: '#8B8FA3', fontSize: 10, textTransform: 'uppercase' }}>To</Text>
+            <Text style={{ color: '#8B8FA3', fontSize: 10, textTransform: 'uppercase' }}>{t('common.to')}</Text>
             <Text style={{ color: '#FFFFFF', fontSize: 12, fontWeight: '700', marginTop: 2 }}>{item.metadata.to_branch}</Text>
           </View>
         </View>
@@ -133,11 +135,16 @@ export default function AdminInventory() {
       <TouchableOpacity 
         onPress={() => {
           Alert.alert(
-            'Xác nhận điều phối',
-            `Bạn có chắc chắn muốn chuyển ${item.metadata?.quantity || 1} cuốn "${item.book?.title || item.book_isbn}" từ ${item.metadata?.from_branch} sang ${item.metadata?.to_branch}?`,
+            t('admin.transfer_confirm_title'),
+            t('admin.transfer_confirm_msg', { 
+              count: item.metadata?.quantity || 1, 
+              title: item.book?.title || item.book_isbn,
+              from: item.metadata?.from_branch,
+              to: item.metadata?.to_branch
+            }),
             [
-              { text: 'Hủy', style: 'cancel' },
-              { text: 'Xác nhận', onPress: () => executeTransfer(item) }
+              { text: t('common.cancel'), style: 'cancel' },
+              { text: t('common.confirm'), onPress: () => executeTransfer(item) }
             ]
           );
         }}
@@ -158,7 +165,7 @@ export default function AdminInventory() {
         {isTransferring ? (
           <ActivityIndicator size="small" color="#FFFFFF" />
         ) : (
-          <Text style={{ color: '#FFFFFF', fontWeight: '700' }}>Điều phối ngay</Text>
+          <Text style={{ color: '#FFFFFF', fontWeight: '700' }}>{t('admin.transfer_now')}</Text>
         )}
       </TouchableOpacity>
     </View>
@@ -169,8 +176,8 @@ export default function AdminInventory() {
       {/* Header */}
       <View style={{ paddingHorizontal: 24, paddingTop: 60, paddingBottom: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
         <View>
-          <Text style={{ color: '#FFFFFF', fontSize: 24, fontWeight: '700' }}>Kho & Điều phối</Text>
-          <Text style={{ color: '#8B8FA3', fontSize: 14, marginTop: 4 }}>AI-Powered Inventory Intelligence</Text>
+          <Text style={{ color: '#FFFFFF', fontSize: 24, fontWeight: '700' }}>{t('admin.inventory_title')}</Text>
+          <Text style={{ color: '#8B8FA3', fontSize: 14, marginTop: 4 }}>{t('admin.inventory_subtitle')}</Text>
         </View>
         <TouchableOpacity 
           onPress={runAIAnalysis}
@@ -189,11 +196,11 @@ export default function AdminInventory() {
         {/* Stats Row */}
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 24 }}>
           <View style={{ backgroundColor: '#151929', borderRadius: 20, padding: 16, width: '48%', borderWidth: 1, borderColor: '#1E2540' }}>
-            <Text style={{ color: '#8B8FA3', fontSize: 12, fontWeight: '600' }}>Tổng số bản sao</Text>
+            <Text style={{ color: '#8B8FA3', fontSize: 12, fontWeight: '600' }}>{t('admin.total_copies')}</Text>
             <Text style={{ color: '#FFFFFF', fontSize: 24, fontWeight: '800', marginTop: 8 }}>{stats?.total || 0}</Text>
           </View>
           <View style={{ backgroundColor: '#151929', borderRadius: 20, padding: 16, width: '48%', borderWidth: 1, borderColor: '#1E2540' }}>
-            <Text style={{ color: '#8B8FA3', fontSize: 12, fontWeight: '600' }}>Khả dụng</Text>
+            <Text style={{ color: '#8B8FA3', fontSize: 12, fontWeight: '600' }}>{t('admin.available_copies')}</Text>
             <Text style={{ color: '#10B981', fontSize: 24, fontWeight: '800', marginTop: 8 }}>{stats?.available || 0}</Text>
           </View>
         </View>
@@ -201,8 +208,8 @@ export default function AdminInventory() {
         {/* AI Suggestions Section */}
         <View style={{ marginBottom: 24 }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-            <Text style={{ color: '#FFFFFF', fontSize: 18, fontWeight: '700' }}>Đề xuất từ AI</Text>
-            <Text style={{ color: '#4F8EF7', fontSize: 13, fontWeight: '600' }}>Xem tất cả</Text>
+            <Text style={{ color: '#FFFFFF', fontSize: 18, fontWeight: '700' }}>{t('admin.ai_suggestions')}</Text>
+            <Text style={{ color: '#4F8EF7', fontSize: 13, fontWeight: '600' }}>{t('common.view_all')}</Text>
           </View>
           
           {suggestions?.map((item: any) => (
@@ -212,14 +219,14 @@ export default function AdminInventory() {
           {(!suggestions || suggestions.length === 0) && (
             <View style={{ padding: 40, alignItems: 'center', backgroundColor: '#151929', borderRadius: 24, borderStyle: 'dashed', borderWidth: 1, borderColor: '#2E3654' }}>
               <Ionicons name="analytics-outline" size={32} color="#5A5F7A" />
-              <Text style={{ color: '#5A5F7A', fontSize: 14, textAlign: 'center', marginTop: 12 }}>Chưa có đề xuất điều phối nào. Nhấn biểu tượng ⚡ để AI phân tích.</Text>
+              <Text style={{ color: '#5A5F7A', fontSize: 14, textAlign: 'center', marginTop: 12 }}>{t('admin.no_suggestions_hint')}</Text>
             </View>
           )}
         </View>
 
         {/* Branches Section */}
         <View>
-          <Text style={{ color: '#FFFFFF', fontSize: 18, fontWeight: '700', marginBottom: 16 }}>Danh sách Chi nhánh</Text>
+          <Text style={{ color: '#FFFFFF', fontSize: 18, fontWeight: '700', marginBottom: 16 }}>{t('admin.branch_list')}</Text>
           {branches?.map((branch: any) => (
             <View key={branch.id} style={{ 
               backgroundColor: '#151929', 

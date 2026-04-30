@@ -67,6 +67,40 @@ export function useContent() {
     queryFn: () => booksService.searchAudiobooks(query),
   });
 
+  const getAudiobookById = (id: string) => useQuery({
+    queryKey: ['audiobook', id],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('audiobook_metadata').select('*').eq('id', id).single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!id
+  });
+
+  const getInventory = (isbn: string) => useQuery({
+    queryKey: ['branch_inventory', isbn],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('branch_inventory').select('*, branches(*)').eq('isbn', isbn);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!isbn
+  });
+
+  const getSimilar = (embedding: any, isbn: string, limit = 5) => useQuery({
+    queryKey: ['similar_books', isbn],
+    enabled: !!embedding && !!isbn,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('match_books', {
+        query_embedding: embedding,
+        match_threshold: 0.4,
+        match_count: limit + 5
+      });
+      if (error) throw error;
+      return (data || []).filter((b: any) => b.isbn !== isbn).slice(0, limit);
+    }
+  });
+
   // --- Recommendations ---
   const getRecommendations = (limit = 5) => useQuery({
     queryKey: ['recommendations', userId, limit],
@@ -79,7 +113,7 @@ export function useContent() {
   const getReviews = (isbn: string) => useQuery({
     queryKey: ['reviews', isbn],
     queryFn: async () => {
-      const { data, error } = await supabase.from('reviews').select('*, profiles(full_name, avatar_url)').eq('book_isbn', isbn).order('created_at', { ascending: false });
+      const { data, error } = await supabase.from('reviews').select('*, profiles(fullName:full_name, avatarUrl:avatar_url)').eq('book_isbn', isbn).order('created_at', { ascending: false });
       if (error) throw error;
       return data || [];
     },
@@ -87,17 +121,27 @@ export function useContent() {
   });
 
   const addReview = useMutation({
-    mutationFn: (review: { book_isbn: string, rating: number, comment: string }) => 
-      supabase.from('reviews').upsert([{ ...review, user_id: userId }]),
+    mutationFn: async (review: { book_isbn: string, rating: number, comment: string }) => {
+      const { data, error } = await supabase.from('reviews').upsert([{ ...review, user_id: userId }]);
+      if (error) throw error;
+      return data;
+    },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['reviews', variables.book_isbn] });
       queryClient.invalidateQueries({ queryKey: ['books'] });
     }
   });
 
+  const syncBook = useMutation({
+    mutationFn: (isbn: string) => booksService.syncBookMetadata(isbn),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['books'] });
+    }
+  });
+
   return {
-    books: { list: getBooks, getByIsbn: getBookByIsbn, semanticSearch, semanticSearchMutation },
-    audiobooks: { list: getAudiobooks, search: searchAudiobooks },
+    books: { list: getBooks, getByIsbn: getBookByIsbn, semanticSearch, semanticSearchMutation, getInventory, getSimilar, sync: syncBook },
+    audiobooks: { list: getAudiobooks, search: searchAudiobooks, getById: getAudiobookById },
     recommendations: { get: getRecommendations },
     reviews: { list: getReviews, add: addReview }
   };

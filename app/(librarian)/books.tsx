@@ -3,10 +3,10 @@ import { View, ScrollView, TouchableOpacity, Alert, Modal, TextInput, Image, Tex
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { supabase } from '../../src/api/supabase';
-import { useLibrary, Book } from '../../src/hooks/useLibrary';
-import { BookItem } from '../../src/components/BookItem';
-import { RatingPicker } from '../../src/components/RatingPicker';
+import { supabase } from '@/src/api/supabase';
+import { useLibrary, Book } from '@/src/hooks/useLibrary';
+import { BookItem } from '@/src/features/books/components/BookItem';
+import { RatingPicker } from '@/src/features/books/components/RatingPicker';
 
 export default function LibrarianBooks() {
   const { t } = useTranslation();
@@ -157,7 +157,7 @@ export default function LibrarianBooks() {
         { text: "Hủy", style: "cancel" },
         { 
           text: "Trích xuất", 
-          onPress: (text) => {
+          onPress: (text: string | undefined) => {
             if (!text) return;
             const titleMatch = text.match(/245.*\$a\s*([^$|\n|/]+)/);
             const authorMatch = text.match(/100.*\$a\s*([^$|\n]+)/);
@@ -184,7 +184,7 @@ export default function LibrarianBooks() {
     setFormData({ ...formData, total_copies: String(Math.max(1, current + amount)) });
   };
   
-  const filteredBooks = books?.filter(book => 
+  const filteredBooks = books?.filter((book: Book) => 
     book.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
     book.author?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     book.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -197,7 +197,7 @@ export default function LibrarianBooks() {
       <View style={styles.header}>
         <View>
           <Text style={styles.headerTitle}>{t('librarian.books_management')}</Text>
-          <Text style={styles.headerSubtitle}>Quản lý kho và metadata nâng cao</Text>
+          <Text style={styles.headerSubtitle}>{t('librarian.add_book_desc')}</Text>
         </View>
         <TouchableOpacity 
           onPress={() => { resetForm(); setModalVisible(true); }}
@@ -231,14 +231,14 @@ export default function LibrarianBooks() {
             <Text style={styles.loaderText}>{t('messages.loading')}</Text>
           </View>
         ) : (
-          filteredBooks?.map((book) => (
+          filteredBooks?.map((book: Book) => (
             <BookItem 
               key={book.isbn} 
               item={book} 
               showActions 
               onEdit={handleEdit}
               onRatingPress={handleEdit} 
-              onDelete={(item) => {
+              onDelete={(item: Book) => {
                 Alert.alert(t('librarian.delete_confirm'), t('librarian.delete_confirm_msg'), [
                   { text: t('common.cancel') },
                   { text: t('common.confirm'), style: 'destructive', onPress: () => {
@@ -258,7 +258,7 @@ export default function LibrarianBooks() {
           <View style={styles.modalContent}>
             <View style={styles.modalIndicator} />
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>{editingBook ? 'Cập nhật sách' : 'Thêm sách mới'}</Text>
+              <Text style={styles.modalTitle}>{editingBook ? t('common.edit') : t('librarian.add_book')}</Text>
               <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.closeBtn}>
                 <Ionicons name="close" size={20} color="#8B8FA3" />
               </TouchableOpacity>
@@ -272,7 +272,7 @@ export default function LibrarianBooks() {
                   <TextInput
                     value={formData.isbn}
                     onChangeText={(val) => setFormData({ ...formData, isbn: val })}
-                    placeholder="Nhập ISBN..."
+                    placeholder={t('common.isbn') + '...'}
                     placeholderTextColor="#3D4260"
                     style={[styles.textInput, { flex: 1 }]}
                   />
@@ -289,7 +289,7 @@ export default function LibrarianBooks() {
                 <TextInput
                   value={formData.title}
                   onChangeText={(val) => setFormData({ ...formData, title: val })}
-                  placeholder="Tiêu đề..."
+                  placeholder={t('common.book_title') + '...'}
                   placeholderTextColor="#3D4260"
                   style={styles.textInput}
                 />
@@ -298,13 +298,13 @@ export default function LibrarianBooks() {
                 <TextInput
                   value={formData.author}
                   onChangeText={(val) => setFormData({ ...formData, author: val })}
-                  placeholder="Tên tác giả..."
+                  placeholder={t('common.author') + '...'}
                   placeholderTextColor="#3D4260"
                   style={styles.textInput}
                 />
 
                 {/* Quantity Manager */}
-                <Text style={styles.fieldLabel}>SỐ LƯỢNG TRONG KHO</Text>
+                <Text style={styles.fieldLabel}>{t('common.total_copies').toUpperCase()}</Text>
                 <View style={styles.quantityContainer}>
                   <TouchableOpacity onPress={() => adjustCopies(-1)} style={styles.qtyBtn}>
                     <Ionicons name="remove" size={20} color="#FFFFFF" />
@@ -321,7 +321,7 @@ export default function LibrarianBooks() {
                 </View>
 
                 {/* Rating */}
-                <Text style={styles.fieldLabel}>XẾP HẠNG</Text>
+                <Text style={styles.fieldLabel}>{t('common.status').toUpperCase()}</Text>
                 <RatingPicker 
                   rating={parseFloat(formData.average_rating)} 
                   onRatingChange={(r) => setFormData({...formData, average_rating: String(r)})} 
@@ -365,6 +365,8 @@ export default function LibrarianBooks() {
                   value={formData.description}
                   onChangeText={(val) => setFormData({ ...formData, description: val })}
                   multiline
+                  placeholder={t('common.no_description')}
+                  placeholderTextColor="#3D4260"
                   style={[styles.textInput, { height: 80, textAlignVertical: 'top' }]}
                 />
 
@@ -384,7 +386,7 @@ export default function LibrarianBooks() {
                   style={styles.submitBtn}
                 >
                   <Text style={styles.submitBtnText}>
-                    {saveMutation.isPending ? 'Đang lưu...' : 'Lưu thay đổi'}
+                    {saveMutation.isPending ? t('common.loading') : t('common.save')}
                   </Text>
                 </TouchableOpacity>
               </View>

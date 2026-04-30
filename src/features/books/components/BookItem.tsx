@@ -5,9 +5,9 @@ import Animated from 'react-native-reanimated';
 
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Book } from '../hooks/library/types';
-import { useMetadataSettings } from '../hooks/useMetadataSettings';
-import { AnimatedWrapper } from './AnimatedWrapper';
+import { Book } from '@/src/hooks/library/types';
+import { useMetadataSettings } from '@/src/hooks/useMetadataSettings';
+import { AnimatedWrapper } from '@/src/components/AnimatedWrapper';
 
 interface BookItemProps {
   item: Book;
@@ -57,7 +57,7 @@ export const BookItem: React.FC<BookItemProps> = React.memo(({
       setImgSrc({ uri: googleThumbnail });
       setUseFallback(true);
     } else {
-      setImgSrc(require('../../assets/images/icon.png'));
+      setImgSrc(require('@/assets/images/icon.png'));
     }
   };
 

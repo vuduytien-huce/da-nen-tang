@@ -99,7 +99,7 @@ export const useAuthStore = create<AuthStore>()(
         // 2. Fetch from DB
         const { data, error, status } = await supabase
           .from("profiles")
-          .select("*")
+          .select("*, fullName:full_name, avatarUrl:avatar_url, favoriteGenres:favorite_genres")
           .eq("id", userId)
           .single();
 
@@ -121,17 +121,11 @@ export const useAuthStore = create<AuthStore>()(
             if (!insertError && newUser) {
               set({
                 profile: { 
-                  id: newUser.id, 
-                  fullName: newUser.full_name, 
-                  role: newUser.role as UserRole,
+                  ...newUser,
+                  fullName: newUser.full_name,
                   avatarUrl: newUser.avatar_url,
-                  bio: newUser.bio,
                   favoriteGenres: newUser.favorite_genres || [],
-                  xp: newUser.xp || 0,
-                  level: newUser.level || 1,
-                  badges: newUser.badges || [],
-                  is_locked: newUser.is_locked || false,
-                  lock_reason: newUser.lock_reason || null
+                  role: newUser.role as UserRole
                 },
               });
               return;
@@ -174,17 +168,9 @@ export const useAuthStore = create<AuthStore>()(
           } });
         } else if (data) {
           const profile = { 
-              id: data.id, 
-              fullName: data.full_name, 
-              role: data.role as UserRole,
-              avatarUrl: data.avatar_url,
-              bio: data.bio,
-              favoriteGenres: data.favorite_genres || [],
-              xp: data.xp || 0,
-              level: data.level || 1,
-              badges: data.badges || [],
-              is_locked: data.is_locked || false,
-              lock_reason: data.lock_reason || null
+              ...data,
+              favoriteGenres: data.favoriteGenres || [],
+              role: data.role as UserRole
             };
           set({ profile });
           membersService.saveProfile(profile);

@@ -40,7 +40,7 @@ export default function LibrarianReports() {
   // Category Distribution for Pie Chart
   const categories: Record<string, number> = {};
   allBooks?.forEach(b => {
-    const cat = b.category || 'Khác';
+    const cat = b.category || t('common.other');
     categories[cat] = (categories[cat] || 0) + 1;
   });
 
@@ -53,16 +53,17 @@ export default function LibrarianReports() {
   })).sort((a, b) => b.population - a.population).slice(0, 6);
 
   // Monthly Borrows (Simulated/Mock since we only have raw records)
+  const months = t('common.months_short', { returnObjects: true }) as string[];
   const barData = {
-    labels: ['T2', 'T3', 'T4', 'T5', 'T6', 'T7'],
+    labels: months.slice(1, 7), // T2-T7 or Feb-Jul
     datasets: [{ data: [12, 19, 15, 24, 18, 30] }]
   };
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Thống kê & Báo cáo</Text>
-        <Text style={styles.headerSubtitle}>Tổng quan hoạt động thư viện</Text>
+        <Text style={styles.headerTitle}>{t('librarian.reports_stats')}</Text>
+        <Text style={styles.headerSubtitle}>{t('librarian.reports_stats_desc')}</Text>
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollArea}>
@@ -71,22 +72,22 @@ export default function LibrarianReports() {
           <View style={[styles.statCard, { backgroundColor: '#1C2541' }]}>
             <Ionicons name="library" size={24} color="#4F8EF7" />
             <Text style={styles.statValue}>{totalCopies}</Text>
-            <Text style={styles.statLabel}>Tổng số bản sách</Text>
+            <Text style={styles.statLabel}>{t('common.total_copies')}</Text>
           </View>
           <View style={[styles.statCard, { backgroundColor: '#132A24' }]}>
             <Ionicons name="book" size={24} color="#10B981" />
             <Text style={styles.statValue}>{activeBorrows}</Text>
-            <Text style={styles.statLabel}>Đang lưu hành</Text>
+            <Text style={styles.statLabel}>{t('librarian.borrowing')}</Text>
           </View>
           <View style={[styles.statCard, { backgroundColor: '#301A1A' }]}>
             <Ionicons name="alert-circle" size={24} color="#FF6B6B" />
             <Text style={styles.statValue}>{overdueBorrows}</Text>
-            <Text style={styles.statLabel}>Quá hạn trả</Text>
+            <Text style={styles.statLabel}>{t('librarian.overdue_books')}</Text>
           </View>
         </View>
 
         {/* Charts */}
-        <Text style={styles.sectionTitle}>Phân bổ theo thể loại</Text>
+        <Text style={styles.sectionTitle}>{t('analytics.genre_trends')}</Text>
         <View style={styles.chartCard}>
           <PieChart
             data={pieData}
@@ -100,7 +101,7 @@ export default function LibrarianReports() {
           />
         </View>
 
-        <Text style={styles.sectionTitle}>Xu hướng mượn sách</Text>
+        <Text style={styles.sectionTitle}>{t('analytics.borrow_density')}</Text>
         <View style={styles.chartCard}>
           <BarChart
             data={barData}
@@ -121,12 +122,12 @@ export default function LibrarianReports() {
         <TouchableOpacity 
           style={styles.exportBtn}
           onPress={() => {
-            if (isMounted) Alert.alert('Xuất báo cáo', 'Chức năng xuất báo cáo PDF đang được phát triển.');
+            if (isMounted) Alert.alert(t('common.notice'), t('analytics.export_pdf_dev'));
           }}
         >
           <LinearGradient colors={['#4F8EF7', '#3A75F2']} style={styles.exportGradient}>
             <Ionicons name="download-outline" size={20} color="#FFFFFF" />
-            <Text style={styles.exportText}>Tải báo cáo chi tiết (.pdf)</Text>
+            <Text style={styles.exportText}>{t('analytics.export_pdf')}</Text>
           </LinearGradient>
         </TouchableOpacity>
       </ScrollView>

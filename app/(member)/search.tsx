@@ -407,7 +407,7 @@ export default function SearchPage() {
                 return;
               }
               if (book.available_copies > 0) {
-                borrows.borrowBook.mutate({ isbn: book.isbn, branchId: '1' }, {
+                borrows.borrow.mutate({ isbn: book.isbn, branchId: '1' }, {
                   onSuccess: () => {
                     Alert.alert(t('common.success'), t('messages.borrow_success'));
                   },
@@ -586,7 +586,7 @@ export default function SearchPage() {
                           router.push(`/book/${book.isbn}`);
                         }}
                       >
-                        <Image source={{ uri: book.cover_url }} style={styles.aiBookCover} />
+                        <Image source={book.cover_url ? { uri: book.cover_url } : undefined} style={styles.aiBookCover} />
                         <View style={styles.aiBookInfo}>
                           <Text style={styles.aiBookTitle} numberOfLines={1}>{book.title}</Text>
                           <Text style={styles.aiBookAuthor}>{book.author}</Text>

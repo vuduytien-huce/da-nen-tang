@@ -22,7 +22,7 @@ export const payment = {
   },
 
   verifyPaymentSignature: (data: object, signature: string): boolean => {
-    const expectedSignature = signPaymentRequest(data);
+    const expectedSignature = payment.signPaymentRequest(data);
     return expectedSignature === signature;
   },
 

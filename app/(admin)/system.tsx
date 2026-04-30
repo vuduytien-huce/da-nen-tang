@@ -14,12 +14,14 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { supabase } from '../../src/api/supabase';
-import { adminService } from '../../src/features/admin/admin.service';
-import { SecurityAuditResult } from '../../src/features/admin/admin.types';
-import { useAuthStore } from '../../src/store/useAuthStore';
+import { useTranslation } from 'react-i18next';
+import { supabase } from '@/src/api/supabase';
+import { adminService } from '@/src/features/admin/admin.service';
+import { SecurityAuditResult } from '@/src/features/admin/admin.types';
+import { useAuthStore } from '@/src/store/useAuthStore';
 
 export default function AdminSystem() {
+  const { t } = useTranslation();
   const profile = useAuthStore((state) => state.profile);
   const [showAddModal, setShowAddModal] = React.useState(false);
   const [isCreating, setIsCreating] = React.useState(false);
@@ -54,7 +56,7 @@ export default function AdminSystem() {
       // Count books missing embeddings
       const { count: missingEmbeddings } = await supabase
         .from('books')
-        .select('*', { count: 'exact', head: true })
+        .select('*, profiles:changed_by(fullName:full_name, role)', { count: 'exact', head: true })
         .is('embedding', null);
 
       // In a real app, storage info would come from an edge function or bucket metadata
@@ -92,7 +94,7 @@ export default function AdminSystem() {
 
   const handleCreateUser = async () => {
     if (!newUser.email || !newUser.password || !newUser.fullName) {
-      Alert.alert('Thông báo', 'Vui lòng điền đầy đủ thông tin');
+      Alert.alert(t('common.error'), t('messages.no_results')); // Or generic message
       return;
     }
 
@@ -103,7 +105,7 @@ export default function AdminSystem() {
       setNewUser({ email: '', password: '', fullName: '', role: 'MEMBER' });
       refetchUsers();
     } catch (err: any) {
-      Alert.alert('Lỗi', 'Lỗi khi tạo: ' + err.message);
+      Alert.alert(t('common.error'), err.message);
     } finally {
       setIsCreating(false);
     }
@@ -114,7 +116,7 @@ export default function AdminSystem() {
       await adminService.updateUser(userId, updates);
       refetchUsers();
     } catch (error: any) {
-      Alert.alert('Lỗi', 'Lỗi khi cập nhật: ' + error.message);
+      Alert.alert(t('common.error'), error.message);
     }
   };
 
@@ -123,7 +125,7 @@ export default function AdminSystem() {
       await adminService.deleteUser(userId);
       refetchUsers();
     } catch (error: any) {
-      Alert.alert('Lỗi', 'Lỗi khi xóa người dùng: ' + error.message);
+      Alert.alert(t('common.error'), error.message);
     }
   };
 
@@ -133,7 +135,7 @@ export default function AdminSystem() {
       const result = await adminService.runSecurityAudit();
       setAuditResult(result);
     } catch (err: any) {
-      Alert.alert('Lỗi', 'Lỗi khi rà soát bảo mật: ' + err.message);
+      Alert.alert(t('common.error'), err.message);
     } finally {
       setIsAuditing(false);
     }
@@ -142,9 +144,9 @@ export default function AdminSystem() {
   const handleBackfillEmbeddings = async () => {
     try {
       const data = await adminService.backfillEmbeddings();
-      Alert.alert('Thành công', `Đã xử lý: ${data.updated} sách. Còn lại: ${data.remaining}`);
+      Alert.alert(t('common.success'), `${t('common.done')}: ${data.updated}. ${t('common.available')}: ${data.remaining}`);
     } catch (err: any) {
-      Alert.alert('Lỗi', 'Lỗi khi tạo embedding: ' + err.message);
+      Alert.alert(t('common.error'), err.message);
     }
   };
 
@@ -198,17 +200,17 @@ export default function AdminSystem() {
       <View style={styles.header}>
         <View style={styles.headerTextContainer}>
           <Text style={styles.title} accessibilityRole="header">
-            Hệ thống
+            {t('admin.system')}
           </Text>
           <Text style={styles.subtitle}>
-            Giám sát tài nguyên BiblioTech
+            {t('admin.system_desc')}
           </Text>
         </View>
         <View
           style={styles.statusBadge}
-          accessibilityLabel="Trạng thái hệ thống: Đang hoạt động"
+          accessibilityLabel={`${t('admin.status_online')}: OK`}
         >
-          <Text style={styles.statusText}>ONLINE</Text>
+          <Text style={styles.statusText}>{t('admin.status_online')}</Text>
         </View>
       </View>
 
@@ -219,13 +221,13 @@ export default function AdminSystem() {
         {/* System Monitor Ops Widgets */}
         <View style={styles.monitorGrid}>
           <MonitorWidget
-            label="API Status"
+            label={t('admin.api_status')}
             value={stats?.apiStatus || '---'}
             icon="pulse"
             color="#10B981"
           />
           <MonitorWidget
-            label="DB Latency"
+            label={t('admin.db_latency')}
             value={`${stats?.latency || 0}ms`}
             icon="speedometer"
             color={
@@ -233,14 +235,14 @@ export default function AdminSystem() {
             }
           />
           <MonitorWidget
-            label="Storage"
+            label={t('admin.storage')}
             value={`${stats?.storage?.used || 0}GB / ${stats?.storage?.total || 0}GB`}
             icon="cloud-upload"
             color="#A855F7"
             progress={stats?.storage?.percentage}
           />
           <MonitorWidget
-            label="Uptime"
+            label={t('admin.uptime')}
             value={stats?.uptime || '---'}
             icon="time"
             color="#F59E0B"
@@ -249,7 +251,7 @@ export default function AdminSystem() {
             onPress={handleBackfillEmbeddings}
             style={styles.aiEmbedButton}
             accessibilityRole="button"
-            accessibilityLabel="Tạo embedding cho sách còn thiếu"
+            accessibilityLabel={t('a11y.ai_summary_hint')}
           >
             <View
               style={[
@@ -271,9 +273,9 @@ export default function AdminSystem() {
                   <Ionicons name="sparkles" size={20} color="#4F8EF7" />
                 </View>
                 <View>
-                  <Text style={styles.userName}>AI Embeddings</Text>
+                  <Text style={styles.userName}>{t('admin.ai_embeddings')}</Text>
                   <Text style={styles.userRole}>
-                    {stats?.missingEmbeddings || 0} sách chưa có embedding
+                    {t('admin.books_missing_embeddings', { count: stats?.missingEmbeddings || 0 })}
                   </Text>
                 </View>
               </View>
@@ -284,16 +286,16 @@ export default function AdminSystem() {
 
         <View style={styles.logHeader}>
           <StatCard
-            title="Thành viên"
+            title={t('analytics.kpi_members')}
             value={stats?.users || 0}
-            subValue="+12% so với tháng trước"
+            subValue={`+12% ${t('common.total_borrows')}`}
             icon="people"
             color="#4F8EF7"
           />
           <StatCard
-            title="Sách khả dụng"
+            title={t('admin.available_books')}
             value={stats?.books || 0}
-            subValue="Tăng trưởng kho sách ổn định"
+            subValue={t('admin.growth_stable')}
             icon="library"
             color="#10B981"
           />
@@ -302,7 +304,7 @@ export default function AdminSystem() {
         {/* User Management Section */}
         <View style={styles.chartContainer}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Quản lý người dùng</Text>
+            <Text style={styles.sectionTitle}>{t('tabs.users')}</Text>
             <View style={styles.userActions}>
               <TouchableOpacity
                 onPress={() => setShowAddModal(true)}
@@ -328,7 +330,7 @@ export default function AdminSystem() {
                 <View style={styles.userItemInfo}>
                   <View style={styles.userNameRow}>
                     <Text style={styles.userName}>
-                      {user.full_name || user.email}
+                      {user.fullName || user.email}
                     </Text>
                     {user.is_locked && (
                       <View style={styles.lockBadge}>
@@ -347,9 +349,6 @@ export default function AdminSystem() {
                     }
                     style={styles.userActionBtn}
                     accessibilityRole="button"
-                    accessibilityLabel={
-                      user.is_locked ? 'Mở khóa người dùng' : 'Khóa người dùng'
-                    }
                   >
                     <Ionicons
                       name={
@@ -365,7 +364,6 @@ export default function AdminSystem() {
                     onPress={() => handleDeleteUser(user.id)}
                     style={styles.smallPadding}
                     accessibilityRole="button"
-                    accessibilityLabel="Xóa người dùng"
                   >
                     <Ionicons name="trash-outline" size={20} color="#EF4444" />
                   </TouchableOpacity>
@@ -374,7 +372,7 @@ export default function AdminSystem() {
             ))}
             {(!users || users.length === 0) && (
               <Text style={styles.emptyText}>
-                Không có người dùng nào
+                {t('messages.no_results')}
               </Text>
             )}
           </View>
@@ -385,10 +383,10 @@ export default function AdminSystem() {
           <View style={styles.sectionHeader}>
             <View>
               <Text style={styles.sectionTitle}>
-                Rà soát bảo mật & RLS
+                {t('admin.security_rls')}
               </Text>
               <Text style={styles.sectionSubtitle}>
-                Kiểm tra Row-Level Security và IDOR
+                {t('admin.security_desc')}
               </Text>
             </View>
             <TouchableOpacity
@@ -413,7 +411,7 @@ export default function AdminSystem() {
                     { color: auditResult?.status === 'RISK' ? '#EF4444' : '#10B981' },
                   ]}
                 >
-                  {auditResult ? 'Chạy lại' : 'Bắt đầu rà soát'}
+                  {auditResult ? t('common.refresh') : t('admin.run_audit')}
                 </Text>
               )}
             </TouchableOpacity>
@@ -448,11 +446,11 @@ export default function AdminSystem() {
                 <View>
                   <Text style={styles.auditTitle}>
                     {auditResult.status === 'SECURE'
-                      ? 'Hệ thống an toàn'
-                      : 'Phát hiện rủi ro'}
+                      ? t('admin.secure_system')
+                      : t('admin.risk_detected')}
                   </Text>
                   <Text style={styles.auditTimestamp}>
-                    Cập nhật:{' '}
+                    {t('admin.audit_timestamp')}:{' '}
                     {new Date(auditResult.timestamp).toLocaleTimeString()}
                   </Text>
                 </View>
@@ -462,7 +460,7 @@ export default function AdminSystem() {
               {auditResult.rls_missing.length > 0 && (
                 <View style={styles.mb16}>
                   <Text style={[styles.riskHeader, { color: '#EF4444' }]}>
-                    Thiếu RLS (Cần bật ngay):
+                    {t('admin.missing_rls')}:
                   </Text>
                   <View style={styles.riskTags}>
                     {auditResult.rls_missing.map((table) => (
@@ -483,7 +481,7 @@ export default function AdminSystem() {
               {auditResult.permissive_policies.length > 0 && (
                 <View style={styles.mb16}>
                   <Text style={[styles.riskHeader, { color: '#F59E0B' }]}>
-                    Rủi ro IDOR (Chính sách lỏng lẻo):
+                    {t('admin.idor_risk')}:
                   </Text>
                   {auditResult.permissive_policies.map((p, i) => (
                     <View key={i} style={styles.mb6}>
@@ -500,7 +498,7 @@ export default function AdminSystem() {
               {auditResult.sensitive_public_read.length > 0 && (
                 <View style={styles.mb16}>
                   <Text style={[styles.riskHeader, { color: '#A855F7' }]}>
-                    Dữ liệu nhạy cảm công khai:
+                    {t('admin.sensitive_public')}:
                   </Text>
                   <View style={styles.riskTags}>
                     {auditResult.sensitive_public_read.map((table) => (
@@ -526,7 +524,7 @@ export default function AdminSystem() {
                     marginTop: 10,
                   }}
                 >
-                  Tất cả các bảng đều đã được bảo vệ bởi Row-Level Security.
+                  {t('admin.all_secure')}
                 </Text>
               )}
             </View>
@@ -557,7 +555,7 @@ export default function AdminSystem() {
                   marginTop: 16,
                 }}
               >
-                Chưa có dữ liệu rà soát. Bấm để bắt đầu.
+                {t('admin.no_audit_data')}
               </Text>
             </TouchableOpacity>
           )}
@@ -582,7 +580,7 @@ export default function AdminSystem() {
               textAlign: 'center',
             }}
           >
-            Hệ thống {stats?.server || 'Supabase Singapore'} hoạt động tối ưu
+            {t('admin.server_optimized', { server: stats?.server || 'Supabase Singapore' })}
           </Text>
           <Text
             style={{
@@ -592,7 +590,7 @@ export default function AdminSystem() {
               marginTop: 4,
             }}
           >
-            Version: {stats?.version || 'v2.0'} • Last checked:{' '}
+            Version: {stats?.version || 'v2.0'} • {t('admin.audit_timestamp')}:{' '}
             {new Date().toLocaleTimeString()}
           </Text>
         </View>
@@ -625,11 +623,11 @@ export default function AdminSystem() {
                 marginBottom: 20,
               }}
             >
-              Thêm thành viên mới
+              {t('admin.add_member')}
             </Text>
 
             <TextInput
-              placeholder="Họ và tên"
+              placeholder={t('admin.full_name')}
               placeholderTextColor="#5A5F7A"
               style={{
                 backgroundColor: '#0B0F1A',
@@ -639,11 +637,10 @@ export default function AdminSystem() {
                 marginBottom: 12,
               }}
               value={newUser.fullName}
-              onChangeText={(t) => setNewUser((p) => ({ ...p, fullName: t }))}
-              accessibilityLabel="Nhập họ và tên"
+              onChangeText={(text) => setNewUser((p) => ({ ...p, fullName: text }))}
             />
             <TextInput
-              placeholder="Email"
+              placeholder={t('admin.email')}
               placeholderTextColor="#5A5F7A"
               keyboardType="email-address"
               autoCapitalize="none"
@@ -655,11 +652,10 @@ export default function AdminSystem() {
                 marginBottom: 12,
               }}
               value={newUser.email}
-              onChangeText={(t) => setNewUser((p) => ({ ...p, email: t }))}
-              accessibilityLabel="Nhập địa chỉ email"
+              onChangeText={(text) => setNewUser((p) => ({ ...p, email: text }))}
             />
             <TextInput
-              placeholder="Mật khẩu"
+              placeholder={t('admin.password')}
               placeholderTextColor="#5A5F7A"
               secureTextEntry
               style={{
@@ -670,8 +666,7 @@ export default function AdminSystem() {
                 marginBottom: 12,
               }}
               value={newUser.password}
-              onChangeText={(t) => setNewUser((p) => ({ ...p, password: t }))}
-              accessibilityLabel="Nhập mật khẩu"
+              onChangeText={(text) => setNewUser((p) => ({ ...p, password: text }))}
             />
 
             <View
@@ -695,7 +690,6 @@ export default function AdminSystem() {
                     borderColor: newUser.role === role ? '#4F8EF7' : '#2E3654',
                   }}
                   accessibilityRole="button"
-                  accessibilityLabel={`Chọn vai trò ${role}`}
                   accessibilityState={{ selected: newUser.role === role }}
                 >
                   <Text
@@ -716,7 +710,7 @@ export default function AdminSystem() {
                 onPress={() => setShowAddModal(false)}
                 style={styles.cancelBtn}
               >
-                <Text style={styles.btnText}>Hủy</Text>
+                <Text style={styles.btnText}>{t('common.cancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={handleCreateUser}
@@ -734,7 +728,7 @@ export default function AdminSystem() {
                   <ActivityIndicator color="#FFF" />
                 ) : (
                   <Text style={styles.btnText}>
-                    Tạo người dùng
+                    {t('admin.create_user')}
                   </Text>
                 )}
               </TouchableOpacity>

@@ -57,7 +57,7 @@ export default function AudiobookCatalog() {
                   style={styles.card}
                   onPress={() => router.push(`/(member)/audiobooks/${book.id}` as any)}
                 >
-                  <Image source={{ uri: book.cover_url }} style={styles.cover} />
+                  <Image source={book.cover_url ? { uri: book.cover_url } : undefined} style={styles.cover} />
                   <LinearGradient colors={['transparent', 'rgba(0,0,0,0.9)']} style={styles.overlay}>
                     <View style={styles.playIcon}>
                       <Ionicons name="play" size={20} color="#FFFFFF" />

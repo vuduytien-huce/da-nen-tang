@@ -9,7 +9,7 @@ export interface AuditLog {
   severity: string;
   created_at: string;
   actor?: {
-    full_name: string;
+    fullName: string;
     role: string;
   };
 }
@@ -18,7 +18,7 @@ export const auditService = {
   async getLogs(limit: number = 100): Promise<AuditLog[]> {
     const { data, error } = await supabase
       .from('audit_logs')
-      .select('*, actor:profiles!actor_id(full_name, role)')
+      .select('*, actor:profiles!actor_id(fullName:full_name, role)')
       .order('created_at', { ascending: false })
       .limit(limit);
 

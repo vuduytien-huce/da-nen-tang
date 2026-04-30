@@ -36,17 +36,27 @@ import { PieChart, LineChart } from "react-native-chart-kit";
 import { NotificationCenter } from "../../src/components/NotificationCenter";
 import { OfflineCard } from "../../src/features/members/components/OfflineCard";
 import { membersService } from "../../src/features/members/members.service";
-import { BorrowRecord } from "../../src/hooks/library/types";
+import { BorrowRecord, Book } from "../../src/hooks/library/types";
 import { useTranslation } from "react-i18next";
 import { AnimatedWrapper } from "../../src/components/AnimatedWrapper";
 import { sync, SyncAction } from "../../src/core/sync";
-import NetInfo from "@react-native-community/netinfo";
+import NetInfo, { NetInfoState } from "@react-native-community/netinfo";
 import { useGamification } from "../../src/hooks/useGamification";
 import { useConnectivity } from "../../src/hooks/useConnectivity";
 import { useBroadcast } from "../../src/hooks/useBroadcast";
 import { supabase } from "../../src/api/supabase";
 
 const { width } = Dimensions.get("window");
+
+const ChartPlaceholder = ({ title }: { title: string }) => (
+  <View style={styles.placeholderContainer}>
+    <Ionicons name="analytics-outline" size={42} color="#2D3142" />
+    <Text style={styles.placeholderTitle}>{title}</Text>
+    <Text style={styles.placeholderSub}>
+      Dữ liệu sẽ hiển thị khi bạn bắt đầu mượn sách
+    </Text>
+  </View>
+);
 
 export default function MemberHome() {
   const router = useRouter();
@@ -59,24 +69,33 @@ export default function MemberHome() {
     profile?.id || "",
   );
   const [queueCount, setQueueCount] = useState(0);
-  const { data: recBooks, isLoading: isRecLoading } = recommendations(6);
+  const { data: recBooks, isLoading: isRecLoading } = recommendations.get(6);
   const { data: feedData, isLoading: isFeedLoading } = feed.getCommunityFeed();
 
   const [showNotifications, setShowNotifications] = useState(false);
 
   const { data: bookList } = books.list();
   const { data: onlineBorrows, isLoading: loadingBorrows } = borrows.list();
-
   const [offlineBorrows, setOfflineBorrows] = useState<BorrowRecord[]>([]);
-  const [offlineBooks, setOfflineBooks] = useState<any[]>([]);
+  const [offlineBooks, setOfflineBooks] = useState<Book[]>([]);
+
+  // Derived state moved up to avoid "used before declaration"
+  const myBorrows = onlineBorrows || offlineBorrows;
   const { isOnline, isSyncing, triggerSync } = useConnectivity();
   const [isOfflineCardVisible, setIsOfflineCardVisible] = useState(false);
-  const [aiRecs, setAiRecs] = useState<any[]>([]);
+  const [aiRecs, setAiRecs] = useState<Book[]>([]);
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [recording, setRecording] = useState<Audio.Recording | null>(null);
-  const [aiResponse, setAiResponse] = useState<any>(null);
+  const [aiResponse, setAiResponse] = useState<{
+    text: string;
+    intent: string;
+    books: any[];
+    searchQuery?: string;
+  } | null>(null);
   const [showAiModal, setShowAiModal] = useState(false);
+  const [syncQueue, setSyncQueue] = useState<SyncAction[]>([]);
+  const [networkState, setNetworkState] = useState<NetInfoState | null>(null);
 
   React.useEffect(() => {
     const performCheckin = async () => {
@@ -146,6 +165,15 @@ export default function MemberHome() {
     };
   }, []);
 
+  // Audio cleanup on unmount
+  React.useEffect(() => {
+    return () => {
+      if (recording) {
+        recording.stopAndUnloadAsync().catch(() => {});
+      }
+    };
+  }, [recording]);
+
   // Fetch AI Recommendations (Semantic Discovery)
   React.useEffect(() => {
     const fetchAiRecs = async () => {
@@ -157,7 +185,7 @@ export default function MemberHome() {
             new Set(
               myBorrows.map((b) => b.book?.category || "").filter(Boolean),
             ),
-          );
+          ) as string[];
 
           const results = await ai.getRecommendationsByProfile(
             titles,
@@ -165,7 +193,9 @@ export default function MemberHome() {
           );
 
           // Filter out books already borrowed
-          const borrowedIsbns = new Set(myBorrows.map((b) => b.book_isbn));
+          const borrowedIsbns = new Set(
+            myBorrows.map((b) => b.book?.isbn).filter(Boolean),
+          );
           const filtered = results.filter(
             (b: any) => !borrowedIsbns.has(b.isbn),
           );
@@ -241,7 +271,7 @@ export default function MemberHome() {
     setRecording(null);
   };
 
-  const myBorrows = onlineBorrows || offlineBorrows;
+  // State and Data derived from hooks
   const myBooks = bookList || offlineBooks;
 
   const timeAgo = (date: string) => {
@@ -269,12 +299,12 @@ export default function MemberHome() {
 
   // Real-time stats & Overdue logic
   const activeBorrowedCount =
-    myBorrows?.filter((b) => b.status === "BORROWED").length || 0;
+    myBorrows?.filter((b: BorrowRecord) => b.status === "BORROWED").length || 0;
   const totalFine =
-    myBorrows?.reduce((acc, r) => acc + ((r as any).estimated_fine || 0), 0) ||
+    myBorrows?.reduce((acc: number, r: BorrowRecord) => acc + (r.estimated_fine || 0), 0) ||
     0;
   const hasOverdue = myBorrows?.some(
-    (b) =>
+    (b: BorrowRecord) =>
       b.status === "BORROWED" &&
       b.due_date &&
       new Date(b.due_date) < new Date(),
@@ -320,14 +350,14 @@ export default function MemberHome() {
   ];
   const genreData = React.useMemo(
     () =>
-      myBorrows?.reduce((acc: any, curr: any) => {
+      myBorrows?.reduce((acc: any[], curr: BorrowRecord) => {
         const genre = curr.book?.category || "Chưa phân loại";
         const existing = acc.find((g: any) => g.name === genre);
-        if (existing) existing.count++;
+        if (existing) existing.population++;
         else
           acc.push({
             name: genre,
-            count: 1,
+            population: 1,
             color: chartColors[acc.length % chartColors.length],
             legendFontColor: "#8A8F9E",
             legendFontSize: 11,
@@ -336,6 +366,18 @@ export default function MemberHome() {
       }, []) || [],
     [myBorrows],
   );
+
+  const borrowStats = React.useMemo(() => {
+    const statsArr = [0, 0, 0, 0, 0, 0];
+    myBorrows?.forEach((b: BorrowRecord) => {
+      const date = new Date(b.borrowed_at);
+      const diff = Math.floor(
+        (new Date().getTime() - date.getTime()) / (1000 * 3600 * 24 * 30),
+      );
+      if (diff >= 0 && diff < 6) statsArr[5 - diff]++;
+    });
+    return statsArr;
+  }, [myBorrows]);
 
   const chartConfig = {
     backgroundGradientFrom: "#171B2B",
@@ -636,68 +678,46 @@ export default function MemberHome() {
             <View style={styles.chartRow}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.chartLabel}>Xu hướng mượn sách</Text>
-                <LineChart
-                  data={{
-                    labels: ["T2", "T3", "T4", "T5", "T6", "T7"],
-                    datasets: [{ data: [2, 5, 3, 8, 4, 6] }],
-                  }}
-                  width={width - 80}
-                  height={160}
-                  chartConfig={chartConfig}
-                  bezier
-                  style={styles.chart}
-                  withDots={false}
-                  withInnerLines={false}
-                  withOuterLines={false}
-                  withVerticalLines={false}
-                  withHorizontalLines={false}
-                  withScrollableDot={false}
-                />
+                {myBorrows?.length > 0 ? (
+                  <LineChart
+                    data={{
+                      labels: ["T-5", "T-4", "T-3", "T-2", "T-1", "T0"],
+                      datasets: [{ data: borrowStats }],
+                    }}
+                    width={width - 80}
+                    height={160}
+                    chartConfig={chartConfig}
+                    bezier
+                    style={styles.chart}
+                    withDots={false}
+                    withInnerLines={false}
+                    withOuterLines={false}
+                    withVerticalLines={false}
+                    withHorizontalLines={false}
+                    withScrollableDot={false}
+                  />
+                ) : (
+                  <ChartPlaceholder title="Xu hướng mượn sách" />
+                )}
               </View>
             </View>
 
             <View style={{ marginTop: 24 }}>
               <Text style={styles.chartLabel}>Phân bổ thể loại yêu thích</Text>
-              <PieChart
-                data={[
-                  {
-                    name: "Văn học",
-                    count: 15,
-                    color: "#3A75F2",
-                    legendFontColor: "#8A8F9E",
-                    legendFontSize: 11,
-                  },
-                  {
-                    name: "Công nghệ",
-                    count: 10,
-                    color: "#10B981",
-                    legendFontColor: "#8A8F9E",
-                    legendFontSize: 11,
-                  },
-                  {
-                    name: "Khoa học",
-                    count: 5,
-                    color: "#F59E0B",
-                    legendFontColor: "#8A8F9E",
-                    legendFontSize: 11,
-                  },
-                  {
-                    name: "Khác",
-                    count: 3,
-                    color: "#6E768F",
-                    legendFontColor: "#8A8F9E",
-                    legendFontSize: 11,
-                  },
-                ]}
-                width={width - 60}
-                height={140}
-                chartConfig={chartConfig}
-                accessor={"count"}
-                backgroundColor={"transparent"}
-                paddingLeft={"0"}
-                center={[10, 0]}
-                absolute
-              />
+              {genreData?.length > 0 ? (
+                <PieChart
+                  data={genreData}
+                  width={width - 60}
+                  height={140}
+                  chartConfig={chartConfig}
+                  accessor="population"
+                  backgroundColor="transparent"
+                  paddingLeft="15"
+                  absolute
+                />
+              ) : (
+                <ChartPlaceholder title="Phân bổ thể loại" />
+              )}
             </View>
           </View>
         </AnimatedWrapper>
@@ -728,7 +748,7 @@ export default function MemberHome() {
                   index={index}
                   delay={100}
                   onPress={() =>
-                    router.push(`/(member)/book/${activity.book_isbn}` as any)
+                    router.push(`/(member)/book/${activity.bookIsbn}` as any)
                   }
                 >
                   <View
@@ -737,13 +757,13 @@ export default function MemberHome() {
                       index === 2 && { borderBottomWidth: 0 },
                     ]}
                     accessibilityRole="link"
-                    accessibilityLabel={`${activity.user_name} ${activity.type === "BORROW" ? "mượn" : "đánh giá"} sách ${activity.book_title}`}
+                    accessibilityLabel={`${activity.userName} ${activity.type === "BORROW" ? "mượn" : "đánh giá"} sách ${activity.bookTitle}`}
                     accessibilityHint="Nhấn để xem chi tiết sách"
                   >
                     <View style={styles.feedAvatar}>
-                      {activity.avatar_url ? (
+                      {activity.avatarUrl ? (
                         <Image
-                          source={{ uri: activity.avatar_url }}
+                          source={{ uri: activity.avatarUrl }}
                           style={styles.avatarImg}
                         />
                       ) : (
@@ -759,7 +779,7 @@ export default function MemberHome() {
                           ]}
                         >
                           <Text style={styles.avatarText}>
-                            {activity.user_name.charAt(0)}
+                            {activity.userName.charAt(0)}
                           </Text>
                         </View>
                       )}
@@ -767,7 +787,7 @@ export default function MemberHome() {
                     <View style={styles.feedContent}>
                       <Text style={styles.feedText} numberOfLines={2}>
                         <Text style={styles.userName}>
-                          {activity.user_name}
+                          {activity.userName}
                         </Text>
                         <Text style={styles.actionText}>
                           {activity.type === "BORROW"
@@ -775,7 +795,7 @@ export default function MemberHome() {
                             : " vừa đánh giá "}
                         </Text>
                         <Text style={styles.bookName}>
-                          {activity.book_title}
+                          {activity.bookTitle}
                         </Text>
                       </Text>
                       <Text style={styles.feedTime}>
@@ -797,7 +817,7 @@ export default function MemberHome() {
         </View>
 
         {/* Recommendations Section */}
-        {(aiRecs.length > 0 || recBooks?.length > 0) && (
+        {(aiRecs.length > 0 || (recBooks?.length || 0) > 0) && (
           <View style={styles.recommendationContainer}>
             <View style={styles.sectionHeader}>
               <View>
@@ -831,7 +851,7 @@ export default function MemberHome() {
                   style={styles.recCard}
                 >
                   <Image
-                    source={{ uri: book.cover_url }}
+                    source={{ uri: book.cover_url || 'https://via.placeholder.com/150x200?text=No+Cover' }}
                     style={styles.recImage}
                   />
                   <View style={styles.recInfo}>
@@ -1006,13 +1026,13 @@ export default function MemberHome() {
                   </TouchableOpacity>
                 </View>
                 <ScrollView style={styles.aiModalBody}>
-                  <Text style={styles.aiResponseText}>{aiResponse?.text}</Text>
-                  {aiResponse?.books?.length > 0 && (
+                   <Text style={styles.aiResponseText}>{aiResponse?.text}</Text>
+                  {(aiResponse?.books?.length ?? 0) > 0 && (
                     <View style={styles.aiBooksSection}>
                       <Text style={styles.aiSubTitle}>Sách gợi ý cho bạn:</Text>
-                      {aiResponse.books.map((book: any) => (
+                      {aiResponse?.books?.map((book: any) => (
                         <TouchableOpacity
-                          key={book.id}
+                          key={book.isbn || book.id}
                           style={styles.aiBookItem}
                           onPress={() => {
                             setShowAiModal(false);
@@ -1085,6 +1105,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+  },
+  headerInfo: {
+    flex: 1,
   },
   welcomeText: { color: "#8A8F9E", fontSize: 13, marginBottom: 2 },
   nameText: { color: "#FFFFFF", fontSize: 18, fontWeight: "bold" },
@@ -1461,4 +1484,26 @@ const styles = StyleSheet.create({
   ratingText: { color: "#F59E0B", fontWeight: "bold" },
   feedTime: { fontSize: 11, color: "#5A5F7A", marginTop: 4 },
   emptyFeed: { color: "#5A5F7A", textAlign: "center", marginVertical: 20 },
+  placeholderContainer: {
+    height: 140,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(45, 49, 66, 0.3)",
+    borderRadius: 16,
+    borderStyle: "dashed",
+    borderWidth: 1,
+    borderColor: "#2D3142",
+    marginVertical: 10,
+  },
+  placeholderTitle: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "600",
+    marginTop: 8,
+  },
+  placeholderSub: {
+    color: "#8A8F9E",
+    fontSize: 11,
+    marginTop: 4,
+  },
 });

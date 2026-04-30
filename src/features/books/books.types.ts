@@ -74,4 +74,5 @@ export interface EnrichedAudiobook extends AudiobookRecord {
   canonical_author: string | null;
   canonical_description: string | null;
   canonical_cover_url: string | null;
+  duration?: string | null;
 }

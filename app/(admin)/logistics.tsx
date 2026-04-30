@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../src/api/supabase';
 import Svg, { Path, Circle, G, Text as SvgText } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useTranslation } from 'react-i18next';
 
 const { width } = Dimensions.get('window');
 
@@ -22,6 +23,7 @@ interface BranchStat {
 const VIETNAM_PATH = "M150,50 L160,60 L155,80 L165,100 L160,120 L170,140 L165,160 L180,180 L175,200 L190,220 L185,240 L200,260 L195,280 L210,300 L205,320 L220,340 L215,360 L230,380 L225,400 L240,420 L235,440 L250,460 L245,480 L260,500 L255,520 L270,540 L265,560 L280,580 L275,600 L290,620 L285,640 L300,660 L295,680 L310,700 L305,720 L320,740 L315,760 L330,780 L325,800";
 
 export default function LogisticsScreen() {
+  const { t } = useTranslation();
   const { data: stats, isLoading } = useQuery<BranchStat[]>({
     queryKey: ['branch_demand_stats'],
     queryFn: async () => {
@@ -50,15 +52,15 @@ export default function LogisticsScreen() {
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
-          <Text style={styles.title}>Logistics & Analytics</Text>
-          <Text style={styles.subtitle}>Phân tích nhu cầu và điều phối mạng lưới chi nhánh</Text>
+          <Text style={styles.title}>{t('admin.logistics_title')}</Text>
+          <Text style={styles.subtitle}>{t('admin.logistics_subtitle')}</Text>
         </View>
 
         {/* Visual Map Section */}
         <View style={styles.mapContainer}>
           <View style={styles.mapHeader}>
             <Ionicons name="map-outline" size={20} color="#4F8EF7" />
-            <Text style={styles.mapTitle}>Bản đồ trực quan chi nhánh</Text>
+            <Text style={styles.mapTitle}>{t('admin.visual_map')}</Text>
           </View>
           
           <View style={styles.svgWrapper}>
@@ -110,21 +112,21 @@ export default function LogisticsScreen() {
           <View style={styles.legend}>
             <View style={styles.legendItem}>
               <View style={[styles.dot, { backgroundColor: '#EF4444' }]} />
-              <Text style={styles.legendText}>Nhu cầu cao</Text>
+              <Text style={styles.legendText}>{t('admin.demand_high')}</Text>
             </View>
             <View style={styles.legendItem}>
               <View style={[styles.dot, { backgroundColor: '#F59E0B' }]} />
-              <Text style={styles.legendText}>Trung bình</Text>
+              <Text style={styles.legendText}>{t('admin.demand_medium')}</Text>
             </View>
             <View style={styles.legendItem}>
               <View style={[styles.dot, { backgroundColor: '#10B981' }]} />
-              <Text style={styles.legendText}>Thấp</Text>
+              <Text style={styles.legendText}>{t('admin.demand_low')}</Text>
             </View>
           </View>
         </View>
 
         {/* Heatmap Stats Cards */}
-        <Text style={styles.sectionTitle}>Chi tiết khu vực</Text>
+        <Text style={styles.sectionTitle}>{t('admin.area_details')}</Text>
         <View style={styles.statsGrid}>
           {stats?.map((branch) => (
             <View key={branch.branch_id} style={styles.statCard}>
@@ -144,21 +146,21 @@ export default function LogisticsScreen() {
                 <View style={styles.metricsRow}>
                   <View style={styles.metric}>
                     <Text style={styles.metricValue}>{branch.total_borrows}</Text>
-                    <Text style={styles.metricLabel}>Lượt mượn</Text>
+                    <Text style={styles.metricLabel}>{t('admin.borrows_count')}</Text>
                   </View>
                   <View style={styles.metric}>
                     <Text style={styles.metricValue}>{branch.active_users}</Text>
-                    <Text style={styles.metricLabel}>Thành viên</Text>
+                    <Text style={styles.metricLabel}>{t('common.members')}</Text>
                   </View>
                   <View style={styles.metric}>
                     <Text style={styles.metricValue}>{branch.top_category || 'N/A'}</Text>
-                    <Text style={styles.metricLabel}>Thể loại HOT</Text>
+                    <Text style={styles.metricLabel}>{t('admin.hot_genre')}</Text>
                   </View>
                 </View>
 
                 <View style={styles.categoryInfo}>
                   <Ionicons name="bookmark" size={14} color="#4F8EF7" />
-                  <Text style={styles.categoryText}>Xu hướng: {branch.top_category || 'N/A'}</Text>
+                  <Text style={styles.categoryText}>{t('admin.trend')}: {branch.top_category || 'N/A'}</Text>
                 </View>
               </LinearGradient>
             </View>

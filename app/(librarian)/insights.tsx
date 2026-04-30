@@ -13,9 +13,9 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BarChart, PieChart } from 'react-native-chart-kit';
-import { useLibrarianAnalytics } from '../../src/hooks/library/useLibrarianAnalytics';
-import { useAnalytics } from '../../src/hooks/library/useAnalytics';
-import { AnalyticsHeatmap } from '../../src/features/admin/components/AnalyticsHeatmap';
+import { useLibrarianAnalytics } from '@/src/hooks/library/useLibrarianAnalytics';
+import { useAnalytics } from '@/src/hooks/library/useAnalytics';
+import { AnalyticsHeatmap } from '@/src/features/admin/components/AnalyticsHeatmap';
 import { BlurView } from 'expo-blur';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { useTranslation } from 'react-i18next';
@@ -179,13 +179,15 @@ export default function LibrarianInsights() {
             <View style={styles.chartCard}>
               <BarChart
                 data={{
-                  labels: (peakHours || []).map(p => `${p.hour}h`),
+                  labels: (peakHours || []).map((p: any) => `${p.hour}h`),
                   datasets: [{
-                    data: (peakHours || []).map(p => p.count)
+                    data: (peakHours || []).map((p: any) => p.count)
                   }]
                 }}
                 width={width - 48}
                 height={220}
+                yAxisLabel=""
+                yAxisSuffix=""
                 chartConfig={chartConfig}
                 style={{ borderRadius: 16 }}
               />
@@ -201,8 +203,8 @@ export default function LibrarianInsights() {
             </View>
 
             <Text style={styles.sectionTitle}>{t('analytics.demand_forecast')}</Text>
-            {suggestions?.filter(s => s.type === 'PREDICTIVE_HOT').length > 0 ? (
-              suggestions.filter(s => s.type === 'PREDICTIVE_HOT').map((suggestion) => (
+            {(suggestions?.filter((s: any) => s.type === 'PREDICTIVE_HOT').length || 0) > 0 ? (
+              suggestions?.filter((s: any) => s.type === 'PREDICTIVE_HOT').map((suggestion: any) => (
                 <View key={suggestion.id} style={[styles.suggestionCard, { borderColor: '#10B98130' }]}>
                   <View style={[styles.suggestionIcon, { backgroundColor: '#10B98115' }]}>
                     <Ionicons name="flame" size={24} color="#10B981" />
@@ -232,13 +234,13 @@ export default function LibrarianInsights() {
               ))
             ) : (
               <View style={styles.emptyCard}>
-                <Text style={styles.emptyText}>{t('analytics.no_forecast_hint') || 'Chưa có dự báo nhu cầu. Nhấn nút xu hướng ở trên để chạy AI.'}</Text>
+                <Text style={styles.emptyText}>{t('analytics.no_forecast_hint')}</Text>
               </View>
             )}
 
             <Text style={[styles.sectionTitle, { marginTop: 24 }]}>{t('analytics.ai_advice')}</Text>
             {suggestions && suggestions.length > 0 ? (
-              suggestions.map((suggestion) => (
+              suggestions.map((suggestion: any) => (
                 <View key={suggestion.id} style={styles.suggestionCard}>
                   <View style={styles.suggestionIcon}>
                     <Ionicons 
@@ -262,7 +264,7 @@ export default function LibrarianInsights() {
               ))
             ) : (
               <View style={styles.emptyCard}>
-                <Text style={styles.emptyText}>{t('analytics.no_advice_hint') || 'Chưa có đề xuất kho nào.'}</Text>
+                <Text style={styles.emptyText}>{t('analytics.no_advice_hint')}</Text>
               </View>
             )}
           </Animated.View>

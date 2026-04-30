@@ -29,7 +29,7 @@ interface AuditLog {
   changed_by: string;
   created_at: string;
   profiles?: {
-    full_name: string;
+    fullName: string;
     role: string;
   };
 }
@@ -48,7 +48,7 @@ export default function AuditLogsScreen() {
     queryFn: async () => {
       let query = supabase
         .from('audit_logs')
-        .select('*, profiles:changed_by(full_name, role)')
+        .select('*, profiles:changed_by(fullName:full_name, role)')
         .order('created_at', { ascending: false })
         .limit(100);
 
@@ -128,7 +128,7 @@ export default function AuditLogsScreen() {
           <View style={styles.row}>
             <Text style={styles.label}>{t('admin.performer')}:</Text>
             <Text style={styles.value}>
-              {item.profiles?.full_name || t('admin.system')}
+              {item.profiles?.fullName || t('admin.system')}
             </Text>
           </View>
         </View>

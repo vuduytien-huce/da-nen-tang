@@ -28,8 +28,9 @@ export function useBroadcast() {
     fetchBroadcasts();
 
     // Real-time updates
+    const channelId = `broadcast_messages_${Math.random().toString(36).substring(7)}`;
     const channel = supabase
-      .channel('public:broadcast_messages')
+      .channel(channelId)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'broadcast_messages' }, (payload) => {
         setLatestMessage(payload.new as BroadcastMessage);
       })

@@ -7,7 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 interface DigitalMembershipPassProps {
   member: {
     id: string;
-    full_name: string;
+    fullName: string;
     level: number;
     xp: number;
   };
@@ -41,7 +41,7 @@ export const DigitalMembershipPass: React.FC<DigitalMembershipPassProps> = ({ me
         <View style={styles.body}>
           <View style={styles.infoSection}>
             <Text style={styles.label}>Tên thành viên</Text>
-            <Text style={styles.name} numberOfLines={1}>{member.full_name}</Text>
+            <Text style={styles.name} numberOfLines={1}>{member.fullName}</Text>
             
             <View style={styles.metaRow}>
               <View>

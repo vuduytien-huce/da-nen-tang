@@ -10,7 +10,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useConfig } from '../../src/hooks/library/useConfig';
+import { useConfig } from '@/src/hooks/library/useConfig';
 
 export default function AdminConfig() {
   const { getConfig, updateConfig } = useConfig();
@@ -25,7 +25,7 @@ export default function AdminConfig() {
         { text: 'Hủy', style: 'cancel' },
         {
           text: 'Lưu',
-          onPress: async (value) => {
+          onPress: async (value: string | undefined) => {
             if (!value) return;
             try {
               await updateMutation.mutateAsync({ key, value });
@@ -37,7 +37,7 @@ export default function AdminConfig() {
         },
       ],
       'plain-text',
-      config?.[key] || '',
+      (config as any)?.[key] || '',
     );
   };
 
@@ -112,7 +112,7 @@ export default function AdminConfig() {
               <View style={styles.info}>
                 <Text style={styles.label}>{item.label}</Text>
                 <Text style={styles.value}>
-                  {Number(config?.[item.key]).toLocaleString() || '---'}{' '}
+                  {Number((config as any)?.[item.key]).toLocaleString() || '---'}{' '}
                   {item.unit}
                 </Text>
               </View>

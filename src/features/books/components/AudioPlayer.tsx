@@ -213,7 +213,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
 
       <View style={styles.content}>
         <View style={styles.coverContainer}>
-          <Image source={{ uri: coverUrl }} style={styles.cover} />
+          <Image source={coverUrl ? { uri: coverUrl } : undefined} style={styles.cover} />
           <LinearGradient
             colors={['transparent', 'rgba(0,0,0,0.5)']}
             style={styles.coverOverlay}

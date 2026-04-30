@@ -5,6 +5,7 @@
     "resolveJsonModule": true,
     "esModuleInterop": true,
     "jsx": "react-native",
+    "baseUrl": ".",
     "paths": {
       "@/*": ["./*"]
     }
@@ -15,5 +16,6 @@
     ".expo/types/**/*.ts",
     "expo-env.d.ts",
     "nativewind-env.d.ts"
-  ]
+  ],
+  "exclude": ["node_modules", "supabase", "tests", "scratch", "dist"]
 }

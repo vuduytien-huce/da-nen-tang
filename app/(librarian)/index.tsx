@@ -1,16 +1,18 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Dimensions, StatusBar, ActivityIndicator, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useAuthStore } from '../../src/store/useAuthStore';
-import { useLibrary } from '../../src/hooks/useLibrary';
+import { useAuthStore } from '@/src/store/useAuthStore';
+import { useLibrary } from '@/src/hooks/useLibrary';
 import { useRouter } from 'expo-router';
-import { supabase } from '../../src/api/supabase';
-import { BranchMap } from '../../src/features/admin/components/BranchMap';
-import { logisticsService, RedistributionSuggestion } from '../../src/services/logisticsService';
+import { supabase } from '@/src/api/supabase';
+import { BranchMap } from '@/src/features/admin/components/BranchMap';
+import { logisticsService, RedistributionSuggestion } from '@/src/services/logisticsService';
 
 const { width } = Dimensions.get('window');
 
 export default function LibrarianDashboard() {
+  const { t } = useTranslation();
   const user = useAuthStore((state) => state.profile);
   const logout = useAuthStore((state) => state.logout);
   const router = useRouter();
@@ -66,42 +68,42 @@ export default function LibrarianDashboard() {
       
       const count = data?.count || 0;
       if (count > 0) {
-        Alert.alert('Thành công', `Đã gửi ${count} thông báo nhắc nhở!`);
+        Alert.alert(t('common.success'), t('librarian.reminders_sent', { count }));
       } else {
-        Alert.alert('Thông báo', data?.message || 'Không có người dùng nào cần gửi nhắc nhở.');
+        Alert.alert(t('common.notice'), t('librarian.no_reminders'));
       }
     } catch (err: any) {
       console.error('Error sending reminders:', err);
-      Alert.alert('Lỗi', err.message || 'Không thể gửi thông báo.');
+      Alert.alert(t('common.error'), err.message || t('common.error_occurred'));
     }
   };
 
   const stats = [
-    { label: 'Tổng số sách', value: totalCopies, icon: 'library', bgColor: '#3A75F2', flex: 1.6 },
-    { label: 'Đang mượn', value: activeBorrows, icon: 'book', bgColor: '#10B981', flex: 1.2 },
-    { label: 'Chờ duyệt', value: pendingApprovals, icon: 'time', bgColor: '#F59E0B', flex: 0.8 },
+    { label: t('librarian.total_books'), value: totalCopies, icon: 'library', bgColor: '#3A75F2', flex: 1.6 },
+    { label: t('librarian.borrowing'), value: activeBorrows, icon: 'book', bgColor: '#10B981', flex: 1.2 },
+    { label: t('common.pending'), value: pendingApprovals, icon: 'time', bgColor: '#F59E0B', flex: 0.8 },
   ];
 
   const actions = [
     { 
-      title: 'Quét trả sách', 
-      subtitle: 'Trả sách nhanh qua mã ISBN', 
+      title: t('librarian.scan_return'), 
+      subtitle: t('librarian.scan_return_desc'), 
       icon: 'scan-outline', 
       iconBg: '#1C2541',
       iconColor: '#3A75F2',
       onPress: () => router.push('/(librarian)/books')
     },
     { 
-      title: 'Duyệt mượn sách', 
-      subtitle: 'Xử lý các yêu cầu đang chờ', 
+      title: t('librarian.approve_borrow'), 
+      subtitle: t('librarian.approve_borrow_desc'), 
       icon: 'checkmark-circle-outline', 
       iconBg: '#132A24',
       iconColor: '#10B981',
       onPress: () => router.push('/(librarian)/borrows')
     },
     { 
-      title: 'Thêm sách mới', 
-      subtitle: 'Nhập sách vào kho hệ thống', 
+      title: t('librarian.add_book'), 
+      subtitle: t('librarian.add_book_desc'), 
       icon: 'add-circle-outline', 
       iconBg: '#23153A',
       iconColor: '#A855F7',
@@ -116,48 +118,48 @@ export default function LibrarianDashboard() {
       onPress: () => router.push('/(librarian)/insights')
     },
     { 
-      title: t('librarian.reports_stats') || 'Báo cáo thống kê', 
-      subtitle: 'Xem hiệu suất thư viện', 
+      title: t('librarian.reports_stats'), 
+      subtitle: t('librarian.reports_stats_desc'), 
       icon: 'stats-chart', 
       iconBg: '#301F0E',
       iconColor: '#F59E0B',
       onPress: () => router.push('/(librarian)/reports')
     },
     { 
-      title: 'Dự báo nhu cầu AI', 
-      subtitle: 'Phân tích & Dự báo tồn kho thông minh', 
+      title: t('librarian.demand_ai'), 
+      subtitle: t('librarian.demand_ai_desc'), 
       icon: 'analytics-outline', 
       iconBg: '#132A24',
       iconColor: '#10B981',
       onPress: () => router.push('/(librarian)/demand-prediction')
     },
     { 
-      title: 'Dọn dẹp sách trùng', 
-      subtitle: 'Tìm và hợp nhất các đầu sách lặp', 
+      title: t('librarian.cleanup'), 
+      subtitle: t('librarian.cleanup_desc'), 
       icon: 'trash-outline', 
       iconBg: '#1A1D2E',
       iconColor: '#FF6B6B',
       onPress: () => router.push('/(librarian)/cleanup')
     },
     { 
-      title: 'Nguồn Metadata', 
-      subtitle: 'Quản lý các API lấy thông tin sách', 
+      title: t('librarian.metadata_sources'), 
+      subtitle: t('librarian.metadata_sources_desc'), 
       icon: 'globe-outline', 
       iconBg: '#1C2541',
       iconColor: '#3A75F2',
       onPress: () => router.push('/(librarian)/sources')
     },
     { 
-      title: 'Gửi nhắc nhở (Push)', 
-      subtitle: 'Thông báo quá hạn & nợ phí', 
+      title: t('librarian.push_reminders'), 
+      subtitle: t('librarian.push_reminders_desc'), 
       icon: 'notifications-outline', 
       iconBg: '#301F0E', 
       iconColor: '#F59E0B', 
       onPress: handleSendReminders
     },
     { 
-      title: 'Thông báo toàn hệ thống', 
-      subtitle: 'Gửi tin tức, sự kiện (Realtime)', 
+      title: t('librarian.broadcast_all'), 
+      subtitle: t('librarian.broadcast_all_desc'), 
       icon: 'megaphone-outline', 
       iconBg: '#1C2541',
       iconColor: '#3A75F2',
@@ -173,7 +175,7 @@ export default function LibrarianDashboard() {
         {/* Minimal Header with Logout */}
         <View style={styles.header}>
           <View>
-            <Text style={styles.welcome}>Xin chào, {user?.full_name?.split(' ')[0] || 'Thủ thư'}</Text>
+            <Text style={styles.welcome}>{t('librarian.welcome')}, {user?.fullName?.split(' ')[0] || t('common.librarian')}</Text>
             <Text style={styles.name}>BiblioTech Premium</Text>
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -199,7 +201,7 @@ export default function LibrarianDashboard() {
             <View style={styles.dupeBannerContent}>
               <Ionicons name="warning" size={20} color="#FF6B6B" />
               <Text style={styles.dupeBannerText}>
-                Phát hiện {duplicateCount} nhóm sách trùng lặp cần xử lý!
+                {t('librarian.dupe_detected', { count: duplicateCount })}
               </Text>
               <Ionicons name="chevron-forward" size={16} color="#FF6B6B" />
             </View>
@@ -227,13 +229,13 @@ export default function LibrarianDashboard() {
         </View>
 
         {/* Làn 3: Trend Analysis / Intelligence Section */}
-        <Text style={styles.sectionTitle}>Bản đồ chi nhánh & Tồn kho</Text>
+        <Text style={styles.sectionTitle}>{t('librarian.map_inventory')}</Text>
         <View style={styles.mapWrapper}>
           <BranchMap />
         </View>
 
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitleNoMargin}>Điều phối Logistics AI</Text>
+          <Text style={styles.sectionTitleNoMargin}>{t('librarian.logistics_ai')}</Text>
           <TouchableOpacity 
             style={styles.aiActionBtn} 
             onPress={fetchAiSuggestions}
@@ -244,7 +246,7 @@ export default function LibrarianDashboard() {
             ) : (
               <>
                 <Ionicons name="sparkles" size={16} color="#FFFFFF" />
-                <Text style={styles.aiActionText}>Chạy phân tích AI</Text>
+                <Text style={styles.aiActionText}>{t('librarian.run_ai_analysis')}</Text>
               </>
             )}
           </TouchableOpacity>
@@ -256,8 +258,8 @@ export default function LibrarianDashboard() {
               <View key={idx} style={styles.intelligenceCard}>
                 <View style={styles.intelHeader}>
                   <Ionicons name="swap-horizontal" size={16} color="#10B981" />
-                  <Text style={styles.intelBadge}>GỢI Ý ĐIỀU CHUYỂN</Text>
-                  <Text style={styles.confidenceText}>{Math.round(suggestion.confidence * 100)}% Match</Text>
+                  <Text style={styles.intelBadge}>{t('librarian.ai_suggestion_badge')}</Text>
+                  <Text style={styles.confidenceText}>{Math.round(suggestion.confidence * 100)}% {t('common.match')}</Text>
                 </View>
                 <Text style={styles.intelTitle} numberOfLines={1}>{suggestion.book_title}</Text>
                 <View style={styles.transferPath}>
@@ -265,13 +267,13 @@ export default function LibrarianDashboard() {
                   <Ionicons name="arrow-forward" size={14} color="#3A75F2" />
                   <Text style={styles.pathBranch}>{suggestion.to_branch_name}</Text>
                 </View>
-                <Text style={styles.intelHint}>SL: {suggestion.quantity} cuốn - {suggestion.reason}</Text>
+                <Text style={styles.intelHint}>{t('common.quantity')}: {suggestion.quantity} {t('common.copies')} - {suggestion.reason}</Text>
               </View>
             ))
           ) : (
             <View style={styles.emptyIntel}>
               <Ionicons name="analytics-outline" size={32} color="#1F263B" style={{ marginBottom: 8 }} />
-              <Text style={styles.emptyIntelText}>Nhấn nút phía trên để nhận gợi ý điều phối từ AI</Text>
+              <Text style={styles.emptyIntelText}>{t('librarian.ai_analysis_hint')}</Text>
             </View>
           )}
         </View>
@@ -289,12 +291,12 @@ export default function LibrarianDashboard() {
               <Ionicons name="chevron-forward" size={14} color="#3A75F2" style={{ marginLeft: 'auto' }} />
             </View>
             <Text style={styles.intelTitle}>{t('analytics.demand_forecast')}</Text>
-            <Text style={styles.intelHint}>Phân tích xu hướng 90 ngày và gợi ý nhập kho.</Text>
+            <Text style={styles.intelHint}>{t('analytics.demand_forecast_desc')}</Text>
           </TouchableOpacity>
         </View>
 
         {/* Actions Section */}
-        <Text style={styles.sectionTitle}>Hành động nhanh</Text>
+        <Text style={styles.sectionTitle}>{t('librarian.quick_actions')}</Text>
         <View style={styles.actionList}>
           {actions.map((action, index) => (
             <TouchableOpacity 

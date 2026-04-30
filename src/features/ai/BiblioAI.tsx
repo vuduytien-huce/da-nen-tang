@@ -15,8 +15,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
-import { aiService } from '../services/aiService';
-import { useAuthStore } from '../store/useAuthStore';
+import { ai } from '../../core/ai';
+import { useAuthStore } from '../../store/useAuthStore';
 import { LinearGradient } from 'expo-linear-gradient';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -69,7 +69,7 @@ export const BiblioAI: React.FC = () => {
     setLoading(true);
 
     try {
-      const response = await aiService.askLibrarian(userMsg.text);
+      const response = await ai.askLibrarian(userMsg.text);
       const aiMsg: Message = {
         id: (Date.now() + 1).toString(),
         text: response,

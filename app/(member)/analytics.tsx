@@ -42,7 +42,7 @@ export default function AnalyticsScreen() {
     );
   }
 
-  const pieData = genres?.map((g, i) => ({
+  const pieData = genres?.map((g: any, i: number) => ({
     name: g.category,
     population: g.count,
     color: ['#3A75F2', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'][i % 6],
@@ -106,6 +106,7 @@ export default function AnalyticsScreen() {
                 width={screenWidth * 1.5}
                 height={220}
                 chartConfig={chartConfig}
+                tooltipDataAttrs={() => ({})}
               />
             </ScrollView>
           ) : (
@@ -117,7 +118,7 @@ export default function AnalyticsScreen() {
         <View style={styles.statsRow}>
           <BlurView intensity={20} tint="light" style={styles.statBox}>
             <Ionicons name="book" size={24} color="#3A75F2" />
-            <Text style={styles.statValue}>{genres?.reduce((acc, g) => acc + g.count, 0) || 0}</Text>
+            <Text style={styles.statValue}>{genres?.reduce((acc: number, g: any) => acc + g.count, 0) || 0}</Text>
             <Text style={styles.statLabel}>Sách đã mượn</Text>
           </BlurView>
           <BlurView intensity={20} tint="light" style={styles.statBox}>

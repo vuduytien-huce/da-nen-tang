@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { aiService } from '../services/aiService';
-import { Book } from '../hooks/useLibrary';
+import { ai } from '../../../core/ai';
+import { Book } from '../../../hooks/useLibrary';
 import { useRouter } from 'expo-router';
 
 interface SimilarBooksProps {
@@ -20,7 +20,7 @@ export const SimilarBooks: React.FC<SimilarBooksProps> = ({ currentBook }) => {
       try {
         // Use semantic search based on current book's context
         const query = `${currentBook.title} ${currentBook.category} ${currentBook.description || ''}`;
-        const results = await aiService.semanticSearch(query, 0.4, 6);
+        const results = await ai.semanticSearch(query, 0.4, 6);
         
         // Filter out the current book itself
         const filtered = results.filter((b: Book) => b.isbn !== currentBook.isbn);

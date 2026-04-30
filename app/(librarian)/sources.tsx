@@ -2,10 +2,12 @@ import React, { useState } from 'react';
 import { View, ScrollView, TouchableOpacity, Alert, Modal, TextInput, Text, StyleSheet, Switch } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '../../src/api/supabase';
-import { bulkEnrichAudiobooks } from '../../src/services/audioEnrichment';
+import { supabase } from '@/src/api/supabase';
+import { booksService } from '@/src/features/books/books.service';
+import { useTranslation } from 'react-i18next';
 
 export default function MetadataSources() {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [modalVisible, setModalVisible] = useState(false);
   const [editingSource, setEditingSource] = useState<any>(null);
@@ -38,7 +40,7 @@ export default function MetadataSources() {
     },
     onSuccess: () => {
       if (isMounted) {
-        Alert.alert('Thành công', 'Đã cập nhật nguồn metadata');
+        Alert.alert(t('common.success'), t('messages.book_updated'));
         setModalVisible(false);
       }
       queryClient.invalidateQueries({ queryKey: ['metadata_sources'] });
@@ -53,7 +55,7 @@ export default function MetadataSources() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Quản lý Nguồn</Text>
+        <Text style={styles.headerTitle}>{t('librarian.metadata_sources')}</Text>
         <TouchableOpacity onPress={() => {
           setEditingSource(null);
           setFormData({ name: '', url: '', is_active: true });
@@ -97,8 +99,8 @@ export default function MetadataSources() {
       </View>
 
       <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Nguồn Metadata</Text>
-        <Text style={styles.sectionSubtitle}>Quản lý API đồng bộ thông tin sách</Text>
+        <Text style={styles.sectionTitle}>{t('librarian.metadata_sources')}</Text>
+        <Text style={styles.sectionSubtitle}>{t('librarian.metadata_sources_desc')}</Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollArea}>
@@ -129,7 +131,7 @@ export default function MetadataSources() {
       <Modal visible={modalVisible} animationType="fade" transparent>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>{editingSource ? 'Sửa nguồn' : 'Thêm nguồn mới'}</Text>
+            <Text style={styles.modalTitle}>{editingSource ? t('common.edit') : t('common.add_book')}</Text>
             <TextInput
               value={formData.name}
               onChangeText={(v) => setFormData({...formData, name: v})}
@@ -145,10 +147,10 @@ export default function MetadataSources() {
               style={styles.input}
             />
             <TouchableOpacity onPress={() => saveMutation.mutate()} style={styles.saveBtn}>
-              <Text style={styles.saveBtnText}>Lưu cấu hình</Text>
+              <Text style={styles.saveBtnText}>{t('common.save')}</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.cancelBtn}>
-              <Text style={styles.cancelBtnText}>Hủy</Text>
+              <Text style={styles.cancelBtnText}>{t('common.cancel')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -158,26 +160,27 @@ export default function MetadataSources() {
 }
 
 const SyncCard = ({ name, icon, platform, description, isInternal }: any) => {
+  const { t } = useTranslation();
   const [syncing, setSyncing] = useState(false);
 
   const startSync = async () => {
     setSyncing(true);
     try {
       if (isInternal && platform === 'bulk-enrich') {
-        const result = await bulkEnrichAudiobooks();
-        Alert.alert('Hoàn tất', `Đã quét ${result.total} đầu sách, cập nhật ${result.updated} bản ghi với metadata chuẩn.`);
+        const result = await booksService.bulkEnrichAudiobooks();
+        Alert.alert(t('common.success'), t('common.sync_enrich_success', { total: result.total, updated: result.updated }));
       } else {
         // Legacy external sync simulation
         const { error } = await supabase.from('notifications').insert([{
           user_id: (await supabase.auth.getUser()).data.user?.id,
-          title: 'Đang bắt đầu đồng bộ',
-          body: `Hệ thống đang quét dữ liệu từ ${name}. Quá trình này có thể mất vài phút.`,
+          title: t('common.sync_started'),
+          body: t('common.sync_process_msg', { name }),
           type: 'info'
         }]);
-        Alert.alert('Đã gửi yêu cầu', `Tiến trình đồng bộ ${name} đang được xử lý dưới nền.`);
+        Alert.alert(t('common.success'), t('common.sync_success_msg', { name }));
       }
     } catch (err: any) {
-      Alert.alert('Lỗi', 'Không thể khởi động tiến trình đồng bộ: ' + err.message);
+      Alert.alert(t('common.error'), t('common.sync_error', { error: err.message }));
     } finally {
       setTimeout(() => setSyncing(false), 1000);
     }
@@ -197,7 +200,7 @@ const SyncCard = ({ name, icon, platform, description, isInternal }: any) => {
         disabled={syncing}
         style={[styles.syncBtn, syncing && { opacity: 0.5 }]}
       >
-        <Text style={styles.syncBtnText}>{syncing ? '...' : 'Đồng bộ'}</Text>
+        <Text style={styles.syncBtnText}>{syncing ? '...' : t('common.sync')}</Text>
       </TouchableOpacity>
     </View>
   );

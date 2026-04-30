@@ -12,30 +12,30 @@ const { width } = Dimensions.get('window');
 const FeedItem = React.memo(({ activity, onPress, timeAgo }: any) => (
   <TouchableOpacity 
     style={styles.feedItem}
-    onPress={() => onPress(activity.book_isbn)}
+    onPress={() => onPress(activity.bookIsbn)}
     accessibilityRole="button"
-    accessibilityLabel={`${activity.user_name} ${activity.type === 'BORROW' ? 'vừa mượn' : 'vừa đánh giá'} ${activity.book_title}`}
+    accessibilityLabel={`${activity.userName} ${activity.type === 'BORROW' ? 'vừa mượn' : 'vừa đánh giá'} ${activity.bookTitle}`}
     accessibilityHint="Nhấn để xem chi tiết sách"
   >
     <View style={styles.feedAvatar} importantForAccessibility="no-hide-descendants">
-      {activity.avatar_url ? (
-        <Image source={{ uri: activity.avatar_url }} style={styles.avatarImg} />
+      {activity.avatarUrl ? (
+        <Image source={activity.avatarUrl ? { uri: activity.avatarUrl } : undefined} style={styles.avatarImg} />
       ) : (
         <View style={[styles.avatarPlaceholder, { backgroundColor: activity.type === 'BORROW' ? '#3A75F2' : '#F59E0B' }]}>
-          <Text style={styles.avatarText}>{activity.user_name.charAt(0)}</Text>
+          <Text style={styles.avatarText}>{activity.userName?.charAt(0)}</Text>
         </View>
       )}
       <View style={styles.levelBadgeMini}>
-        <Text style={styles.levelBadgeText}>Lvl {activity.user_level || 1}</Text>
+        <Text style={styles.levelBadgeText}>Lvl {activity.userLevel || 1}</Text>
       </View>
     </View>
     <View style={styles.feedContent}>
       <Text style={styles.feedText} numberOfLines={2}>
-        <Text style={styles.userName}>{activity.user_name}</Text>
+        <Text style={styles.userName}>{activity.userName}</Text>
         <Text style={styles.actionText}>
           {activity.type === 'BORROW' ? ' vừa mượn ' : ' vừa đánh giá '}
         </Text>
-        <Text style={styles.bookName}>{activity.book_title}</Text>
+        <Text style={styles.bookName}>{activity.bookTitle}</Text>
         {activity.type === 'REVIEW' && (
           <Text style={styles.ratingText}> {activity.rating}★</Text>
         )}
@@ -65,13 +65,13 @@ const LeaderboardItem = React.memo(({ user, index, isCurrentUser }: any) => {
       </View>
       <View style={[styles.lbAvatarContainer, isTop3 && { borderColor: rankColor, borderWidth: 2 }]}>
         <Image 
-          source={{ uri: user.avatar_url || `https://ui-avatars.com/api/?name=${user.full_name}&background=3A75F2&color=fff` }} 
+          source={{ uri: user.avatarUrl || `https://ui-avatars.com/api/?name=${user.fullName}&background=3A75F2&color=fff` }} 
           style={styles.lbAvatar} 
         />
       </View>
       <View style={styles.lbInfo}>
         <Text style={[styles.lbName, isCurrentUser && styles.lbNameCurrent]}>
-          {user.full_name} {isCurrentUser && '(Bạn)'}
+          {user.fullName} {isCurrentUser && '(Bạn)'}
         </Text>
         <Text style={styles.lbLevel}>Cấp {user.level || 1} • {user.role}</Text>
       </View>
@@ -248,13 +248,13 @@ export default function CommunityFeedPage() {
             >
               <View style={styles.lbAvatarContainer}>
                 <Image 
-                  source={{ uri: currentUser.avatar_url || `https://ui-avatars.com/api/?name=${currentUser.full_name}&background=fff&color=3A75F2` }} 
+                  source={{ uri: currentUser.avatarUrl || `https://ui-avatars.com/api/?name=${currentUser.fullName}&background=fff&color=3A75F2` }} 
                   style={styles.lbAvatar} 
                 />
               </View>
               <View style={styles.lbInfo}>
                 <Text style={styles.myRankTitle}>Thứ hạng của bạn</Text>
-                <Text style={styles.myRankName}>{currentUser.full_name}</Text>
+                <Text style={styles.myRankName}>{currentUser.fullName}</Text>
               </View>
               <View style={styles.lbScore}>
                 <Text style={styles.myRankXp}>#{leaderboardData.findIndex(u => u.id === currentUser.id) + 1 || '?'}</Text>

@@ -2,11 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { supabase } from '../../src/api/supabase';
-import { BookItem } from '../../src/components/BookItem';
-import { Book } from '../../src/hooks/library/types';
+import { supabase } from '@/src/api/supabase';
+import { BookItem } from '@/src/features/books/components/BookItem';
+import { Book } from '@/src/hooks/library/types';
+import { useTranslation } from 'react-i18next';
 
 export default function BookCleanup() {
+  const { t } = useTranslation();
   const [duplicates, setDuplicates] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [merging, setMerging] = useState(false);
@@ -18,7 +20,7 @@ export default function BookCleanup() {
       if (error) throw error;
       if (isMounted) setDuplicates(data || []);
     } catch (err: any) {
-      if (isMounted) Alert.alert('Lỗi', err.message);
+      if (isMounted) Alert.alert(t('common.error'), err.message);
     } finally {
       if (isMounted) setLoading(false);
     }
@@ -40,10 +42,10 @@ export default function BookCleanup() {
         });
         if (error) throw error;
       }
-      Alert.alert('Thành công', `Đã hợp nhất các đầu sách trùng của "${title}"`);
+      Alert.alert(t('common.success'), t('cleanup.merge_success_msg', { title }));
       fetchDuplicates();
     } catch (err: any) {
-      Alert.alert('Lỗi', err.message);
+      Alert.alert(t('common.error'), err.message);
     } finally {
       setMerging(false);
     }
@@ -51,12 +53,12 @@ export default function BookCleanup() {
 
   const autoMergeAll = async () => {
     Alert.alert(
-      'Xác nhận', 
-      'Bạn có muốn tự động hợp nhất TẤT CẢ các đầu sách trùng? Hệ thống sẽ giữ lại bản có nhiều thông tin nhất.',
+      t('cleanup.auto_merge_confirm_title'), 
+      t('cleanup.auto_merge_confirm_msg'),
       [
-        { text: 'Hủy', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         { 
-          text: 'Đồng ý', 
+          text: t('common.confirm'), 
           onPress: async () => {
             setMerging(true);
             try {
@@ -82,10 +84,10 @@ export default function BookCleanup() {
                   await supabase.rpc('merge_books', { keep_isbn: keep.isbn, delete_isbn: delIsbn });
                 }
               }
-              Alert.alert('Thành công', 'Đã dọn dẹp sạch sẽ thư viện!');
+              Alert.alert(t('common.success'), t('cleanup.cleanup_complete'));
               fetchDuplicates();
             } catch (err: any) {
-              Alert.alert('Lỗi', err.message);
+              Alert.alert(t('common.error'), err.message);
             } finally {
               setMerging(false);
             }
@@ -97,12 +99,12 @@ export default function BookCleanup() {
 
   const handleSystemCleanup = async () => {
     Alert.alert(
-      'Tối ưu hóa hệ thống', 
-      'Bạn có muốn dọn dẹp các thông báo cũ (trên 60 ngày) và dữ liệu thừa? Hành động này giúp tăng tốc độ ứng dụng.',
+      t('cleanup.system_optimize_title'), 
+      t('cleanup.system_optimize_msg'),
       [
-        { text: 'Hủy', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         { 
-          text: 'Chạy ngay', 
+          text: t('common.confirm'), 
           onPress: async () => {
             setMerging(true);
             try {
@@ -110,9 +112,9 @@ export default function BookCleanup() {
               if (error) throw error;
               
               const deleted = data.notifications_deleted || 0;
-              Alert.alert('Thành công', `Đã dọn dẹp ${deleted} thông báo cũ và tối ưu hóa dữ liệu.`);
+              Alert.alert(t('common.success'), t('cleanup.optimize_success_msg', { count: deleted }));
             } catch (err: any) {
-              Alert.alert('Lỗi', err.message);
+              Alert.alert(t('common.error'), err.message);
             } finally {
               setMerging(false);
             }
@@ -125,16 +127,16 @@ export default function BookCleanup() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Dọn dẹp & Tối ưu</Text>
+        <Text style={styles.title}>{t('cleanup.title')}</Text>
         <View style={{ flexDirection: 'row', gap: 10 }}>
           <TouchableOpacity onPress={handleSystemCleanup} style={[styles.autoBtn, { backgroundColor: '#10B981' }]}>
             <Ionicons name="sparkles" size={18} color="#FFFFFF" />
-            <Text style={styles.autoBtnText}>Tối ưu DB</Text>
+            <Text style={styles.autoBtnText}>{t('cleanup.optimize_db')}</Text>
           </TouchableOpacity>
           {duplicates.length > 0 && !merging && (
             <TouchableOpacity onPress={autoMergeAll} style={styles.autoBtn}>
               <Ionicons name="flash" size={18} color="#FFFFFF" />
-              <Text style={styles.autoBtnText}>Dọn trùng</Text>
+              <Text style={styles.autoBtnText}>{t('cleanup.merge_dupes')}</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -145,11 +147,11 @@ export default function BookCleanup() {
       ) : duplicates.length === 0 ? (
         <View style={styles.empty}>
           <Ionicons name="checkmark-circle-outline" size={80} color="#1E2540" />
-          <Text style={styles.emptyText}>Tuyệt vời! Không có sách trùng.</Text>
+          <Text style={styles.emptyText}>{t('cleanup.no_dupes')}</Text>
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.list}>
-          <Text style={styles.countText}>Tìm thấy {duplicates.length} nhóm sách trùng lặp</Text>
+          <Text style={styles.countText}>{t('cleanup.groups_found', { count: duplicates.length })}</Text>
           
           {duplicates.map((group, idx) => (
             <View key={idx} style={styles.groupCard}>
@@ -178,7 +180,7 @@ export default function BookCleanup() {
                   handleMerge(group.title, group.author, sorted[0].isbn, sorted.slice(1).map(b => b.isbn));
                 }}
               >
-                <Text style={styles.mergeBtnText}>Hợp nhất nhóm này</Text>
+                <Text style={styles.mergeBtnText}>{t('cleanup.merge_this_group')}</Text>
               </TouchableOpacity>
             </View>
           ))}
@@ -188,7 +190,7 @@ export default function BookCleanup() {
       {merging && (
         <View style={styles.overlay}>
           <ActivityIndicator size="large" color="#FFFFFF" />
-          <Text style={styles.overlayText}>Đang xử lý dữ liệu...</Text>
+          <Text style={styles.overlayText}>{t('cleanup.merging')}</Text>
         </View>
       )}
     </SafeAreaView>

@@ -4,8 +4,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useLibrary } from '../../src/hooks/useLibrary';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useTranslation } from 'react-i18next';
 
 export default function LibrarianBorrows() {
+  const { t } = useTranslation();
   const { borrows } = useLibrary();
   const { data: allBorrows, isLoading, refetch } = borrows.listAll();
   const approveMutation = borrows.approve;
@@ -23,16 +25,16 @@ export default function LibrarianBorrows() {
   const filteredData = allBorrows?.filter(b => b.status === filter) || [];
 
   const handleApprove = (id: string) => {
-    Alert.alert('Xác nhận', 'Duyệt yêu cầu mượn sách này?', [
-      { text: 'Hủy', style: 'cancel' },
+    Alert.alert(t('common.confirm'), t('librarian.approve_confirm_msg'), [
+      { text: t('common.cancel'), style: 'cancel' },
       { 
-        text: 'Duyệt', 
+        text: t('common.confirm'), 
         onPress: async () => {
           try {
             await approveMutation.mutateAsync(id);
-            if (isMounted) Alert.alert('Thành công', 'Đã duyệt phiếu mượn');
+            if (isMounted) Alert.alert(t('common.success'), t('librarian.approve_success'));
           } catch (err: any) {
-            if (isMounted) Alert.alert('Lỗi', err.message);
+            if (isMounted) Alert.alert(t('common.error'), err.message);
           }
         } 
       }
@@ -40,16 +42,16 @@ export default function LibrarianBorrows() {
   };
 
   const handleReject = (id: string) => {
-    Alert.prompt('Từ chối', 'Lý do từ chối:', [
-      { text: 'Hủy', style: 'cancel' },
+    Alert.prompt(t('librarian.reject_title'), t('librarian.reject_reason_label'), [
+      { text: t('common.cancel'), style: 'cancel' },
       {
-        text: 'Xác nhận',
-        onPress: async (reason) => {
+        text: t('common.confirm'),
+        onPress: async (reason?: string) => {
           try {
-            await rejectMutation.mutateAsync({ recordId: id, reason: reason || 'Không đủ điều kiện' });
-            if (isMounted) Alert.alert('Thành công', 'Đã từ chối phiếu mượn');
+            await rejectMutation.mutateAsync({ recordId: id, reason: reason || t('librarian.reject_reason_default') });
+            if (isMounted) Alert.alert(t('common.success'), t('librarian.reject_success'));
           } catch (err: any) {
-            if (isMounted) Alert.alert('Lỗi', err.message);
+            if (isMounted) Alert.alert(t('common.error'), err.message);
           }
         }
       }
@@ -57,21 +59,21 @@ export default function LibrarianBorrows() {
   };
 
   const handleReturn = (isbn: string) => {
-    Alert.alert('Xác nhận', `Trả sách có mã ISBN: ${isbn}?`, [
-      { text: 'Hủy', style: 'cancel' },
+    Alert.alert(t('common.confirm'), t('librarian.return_confirm_msg', { isbn }), [
+      { text: t('common.cancel'), style: 'cancel' },
       {
-        text: 'Xác nhận trả',
+        text: t('common.confirm'),
         onPress: async () => {
           try {
             const result = await returnMutation.mutateAsync(isbn);
             if (isMounted) {
               const msg = result.late_fine > 0 
-                ? `Đã trả sách. Tiền phạt quá hạn: ${result.late_fine.toLocaleString()} VND`
-                : 'Đã trả sách thành công.';
-              Alert.alert('Thành công', msg);
+                ? t('librarian.return_success_fine', { amount: result.late_fine.toLocaleString() })
+                : t('librarian.return_success');
+              Alert.alert(t('common.success'), msg);
             }
           } catch (err: any) {
-            if (isMounted) Alert.alert('Lỗi', err.message);
+            if (isMounted) Alert.alert(t('common.error'), err.message);
           }
         }
       }
@@ -88,10 +90,10 @@ export default function LibrarianBorrows() {
         <View style={styles.cardHeader}>
           <View style={styles.bookInfo}>
             <Text style={styles.bookTitle}>{item.book?.title}</Text>
-            <Text style={styles.userInfo}>Người mượn: {item.profiles?.full_name || 'N/A'}</Text>
+            <Text style={styles.userInfo}>{t('librarian.borrower')}: {item.fullName || 'N/A'}</Text>
             {isOverdue && (
               <Text style={styles.overdueInfo}>
-                Quá hạn {daysLate} ngày (Phạt dự kiến: {estFine.toLocaleString()}đ)
+                {t('librarian.overdue_msg', { days: daysLate, fine: estFine.toLocaleString() })}
               </Text>
             )}
           </View>
@@ -104,8 +106,8 @@ export default function LibrarianBorrows() {
           <View style={styles.dateInfo}>
             <Ionicons name="calendar-outline" size={14} color="#5A5F7A" />
             <Text style={styles.dateText}>
-              {item.status === 'PENDING' ? 'Yêu cầu: ' : 'Hạn trả: '} 
-              {new Date(item.status === 'PENDING' ? item.borrowed_at : item.due_date).toLocaleDateString('vi-VN')}
+              {item.status === 'PENDING' ? t('librarian.request_date') + ': ' : t('librarian.due_date') + ': '} 
+              {new Date(item.status === 'PENDING' ? item.borrowed_at : item.due_date).toLocaleDateString(t('common.locale_date'))}
             </Text>
           </View>
           
@@ -132,7 +134,7 @@ export default function LibrarianBorrows() {
               onPress={() => handleReturn(item.book?.isbn)}
             >
               <Ionicons name="arrow-back-circle-outline" size={20} color="#FFFFFF" />
-              <Text style={styles.btnText}>Trả sách</Text>
+              <Text style={styles.btnText}>{t('librarian.return_book')}</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -153,7 +155,7 @@ export default function LibrarianBorrows() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Quản lý Phiếu mượn</Text>
+        <Text style={styles.title}>{t('librarian.borrows_management')}</Text>
         <TouchableOpacity onPress={() => refetch()} style={styles.refreshBtn}>
           <Ionicons name="refresh" size={24} color="#4F8EF7" />
         </TouchableOpacity>
@@ -167,7 +169,7 @@ export default function LibrarianBorrows() {
             onPress={() => setFilter(f)}
           >
             <Text style={[styles.filterText, filter === f && styles.filterTextActive]}>
-              {f === 'PENDING' ? 'Chờ' : f === 'BORROWED' ? 'Đang mượn' : f === 'RETURNED' ? 'Đã trả' : 'Từ chối'}
+              {f === 'PENDING' ? t('common.pending') : f === 'BORROWED' ? t('librarian.borrowed') : f === 'RETURNED' ? t('librarian.returned') : t('librarian.rejected')}
             </Text>
           </TouchableOpacity>
         ))}
@@ -184,7 +186,7 @@ export default function LibrarianBorrows() {
           ListEmptyComponent={
             <View style={styles.empty}>
               <Ionicons name="document-text-outline" size={60} color="#1E2540" />
-              <Text style={styles.emptyText}>Không có phiếu mượn nào</Text>
+              <Text style={styles.emptyText}>{t('librarian.no_borrows')}</Text>
             </View>
           }
         />

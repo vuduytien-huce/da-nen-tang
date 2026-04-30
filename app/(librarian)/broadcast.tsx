@@ -4,8 +4,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../src/api/supabase';
 import { useAuthStore } from '../../src/store/useAuthStore';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 
 export default function BroadcastScreen() {
+  const { t } = useTranslation();
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [type, setType] = useState('info'); // info, warning, promotion
@@ -15,7 +17,7 @@ export default function BroadcastScreen() {
 
   const handleSend = async () => {
     if (!title.trim() || !content.trim()) {
-      Alert.alert('Thiếu thông tin', 'Vui lòng nhập đầy đủ tiêu đề và nội dung.');
+      Alert.alert(t('broadcast.missing_info_title'), t('broadcast.missing_info_msg'));
       return;
     }
 
@@ -30,22 +32,22 @@ export default function BroadcastScreen() {
 
       if (error) throw error;
 
-      Alert.alert('Thành công', 'Đã gửi thông báo đến toàn bộ hệ thống!');
+      Alert.alert(t('common.success'), t('broadcast.success_msg'));
       setTitle('');
       setContent('');
       router.back();
     } catch (error: any) {
       console.error('Error sending broadcast:', error);
-      Alert.alert('Lỗi', error.message || 'Không thể gửi thông báo.');
+      Alert.alert(t('common.error'), error.message || t('common.error'));
     } finally {
       setIsSending(false);
     }
   };
 
   const types = [
-    { id: 'info', label: 'Thông tin', icon: 'information-circle', color: '#3A75F2' },
-    { id: 'warning', label: 'Cảnh báo', icon: 'warning', color: '#F59E0B' },
-    { id: 'promotion', label: 'Khuyến mãi', icon: 'gift', color: '#10B981' },
+    { id: 'info', label: t('broadcast.info'), icon: 'information-circle', color: '#3A75F2' },
+    { id: 'warning', label: t('broadcast.warning'), icon: 'warning', color: '#F59E0B' },
+    { id: 'promotion', label: t('broadcast.promotion'), icon: 'gift', color: '#10B981' },
   ];
 
   return (
@@ -57,42 +59,42 @@ export default function BroadcastScreen() {
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Gửi thông báo hệ thống</Text>
+        <Text style={styles.headerTitle}>{t('broadcast.title')}</Text>
         <View style={{ width: 40 }} />
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll}>
         <View style={styles.card}>
-          <Text style={styles.label}>Loại thông báo</Text>
+          <Text style={styles.label}>{t('broadcast.type_label')}</Text>
           <View style={styles.typeContainer}>
-            {types.map((t) => (
+            {types.map((tItem) => (
               <TouchableOpacity
-                key={t.id}
+                key={tItem.id}
                 style={[
                   styles.typeBtn,
-                  type === t.id && { backgroundColor: t.color, borderColor: t.color }
+                  type === tItem.id && { backgroundColor: tItem.color, borderColor: tItem.color }
                 ]}
-                onPress={() => setType(t.id)}
+                onPress={() => setType(tItem.id)}
               >
-                <Ionicons name={t.icon as any} size={18} color={type === t.id ? '#FFFFFF' : t.color} />
-                <Text style={[styles.typeLabel, type === t.id && { color: '#FFFFFF' }]}>{t.label}</Text>
+                <Ionicons name={tItem.icon as any} size={18} color={type === tItem.id ? '#FFFFFF' : tItem.color} />
+                <Text style={[styles.typeLabel, type === tItem.id && { color: '#FFFFFF' }]}>{tItem.label}</Text>
               </TouchableOpacity>
             ))}
           </View>
 
-          <Text style={styles.label}>Tiêu đề</Text>
+          <Text style={styles.label}>{t('broadcast.subject')}</Text>
           <TextInput
             style={styles.input}
-            placeholder="Nhập tiêu đề thông báo..."
+            placeholder={t('broadcast.subject_placeholder')}
             placeholderTextColor="#5A5F7A"
             value={title}
             onChangeText={setTitle}
           />
 
-          <Text style={styles.label}>Nội dung</Text>
+          <Text style={styles.label}>{t('broadcast.content')}</Text>
           <TextInput
             style={[styles.input, styles.textArea]}
-            placeholder="Nhập nội dung chi tiết..."
+            placeholder={t('broadcast.content_placeholder')}
             placeholderTextColor="#5A5F7A"
             multiline
             numberOfLines={6}
@@ -111,7 +113,7 @@ export default function BroadcastScreen() {
             ) : (
               <>
                 <Ionicons name="send" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
-                <Text style={styles.sendBtnText}>Gửi ngay</Text>
+                <Text style={styles.sendBtnText}>{t('broadcast.send_now')}</Text>
               </>
             )}
           </TouchableOpacity>
@@ -120,7 +122,7 @@ export default function BroadcastScreen() {
         <View style={styles.infoCard}>
           <Ionicons name="bulb-outline" size={20} color="#3A75F2" />
           <Text style={styles.infoText}>
-            Thông báo sẽ được gửi theo thời gian thực (Realtime) đến tất cả các thành viên đang truy cập ứng dụng.
+            {t('broadcast.realtime_hint')}
           </Text>
         </View>
       </ScrollView>

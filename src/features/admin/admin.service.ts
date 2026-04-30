@@ -55,10 +55,21 @@ export const adminService = {
   async getAllBorrows() {
     const { data, error } = await supabase
       .from('borrow_records')
-      .select('*, book:books(*), profiles:user_id(full_name, email)')
+      .select('*, book:books(*), profiles:user_id(fullName:full_name, avatarUrl:avatar_url, email)')
       .order('borrowed_at', { ascending: false });
     if (error) throw error;
-    return data || [];
+    
+    return (data || []).map((record: any) => ({
+      ...record,
+      fullName: record.profiles?.fullName,
+      avatarUrl: record.profiles?.avatarUrl,
+      email: record.profiles?.email,
+      user: record.profiles ? {
+        fullName: record.profiles.fullName,
+        avatarUrl: record.profiles.avatarUrl,
+        email: record.profiles.email
+      } : null
+    }));
   },
 
   async approveBorrow(recordId: string, librarianId: string) {
@@ -156,7 +167,7 @@ export const adminService = {
       const { data: inventory } = await supabase.from('branch_inventory').select('*, branches(name), books(title)');
       const { data: heatmap } = await supabase.from('branch_borrow_heatmap').select('*');
       
-      const prompt = `Analyze inventory: ${JSON.stringify(inventory?.slice(0, 50))} and Demand: ${JSON.stringify(heatmap?.slice(0, 50))}. Suggest 5 transfers in JSON format with fields: isbn, fromBranchId, toBranchId, quantity, reason, priority.`;
+      const prompt = `Phân tích tồn kho: ${JSON.stringify(inventory?.slice(0, 50))} và Nhu cầu: ${JSON.stringify(heatmap?.slice(0, 50))}. Đề xuất 5 lượt điều chuyển dưới dạng JSON với các trường: isbn, fromBranchId, toBranchId, quantity, reason, priority. Hãy viết lý do (reason) bằng tiếng Việt.`;
       
       return await ai.analyzeLogistics(prompt);
     } catch (e) { return []; }
@@ -168,14 +179,34 @@ export const adminService = {
     return data;
   },
 
+  async getAllTransfers() {
+    const { data, error } = await supabase
+      .from('inventory_transfers')
+      .select('*, book:books(title), from_branch:branches!from_branch_id(name), to_branch:branches!to_branch_id(name)')
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return data || [];
+  },
+
+  async completeTransfer(transferId: string) {
+    const { data, error } = await supabase.rpc('complete_transfer', { p_transfer_id: transferId });
+    if (error) throw error;
+    return data;
+  },
+
   async searchMembers(query: string) {
     const { data, error } = await supabase
       .from('profiles')
-      .select('*')
+      .select("id, fullName:full_name, avatarUrl:avatar_url, role, xp, level, email")
       .or(`full_name.ilike.%${query}%,email.ilike.%${query}%`)
       .limit(10);
     if (error) throw error;
-    return data;
+    
+    return (data || []).map((p: any) => ({
+      ...p,
+      fullName: p.fullName,
+      avatarUrl: p.avatarUrl
+    }));
   },
 
   // --- System Maintenance ---

@@ -107,6 +107,7 @@ export const booksService = {
         canonical_author,
         canonical_description,
         canonical_cover_url,
+        duration: this.formatDuration(ab.duration_seconds),
       });
     }
 
@@ -288,5 +289,34 @@ export const booksService = {
     if (error || !data) return null;
     const enriched = await this.enrichWithBookMetadata([data]);
     return enriched[0];
+  },
+
+  async syncBookMetadata(isbn: string) {
+    const metadata = await this.fetchBookMetadata(isbn);
+    if (!metadata) return null;
+    
+    // Check if book exists
+    const { data: existing } = await supabase.from('books').select('isbn').eq('isbn', isbn).maybeSingle();
+    
+    const payload = {
+      title: metadata.title,
+      author: metadata.author,
+      description: metadata.description,
+      cover_url: metadata.thumbnail,
+      published_date: metadata.publishedDate,
+      category: metadata.categories?.[0] || 'Uncategorized',
+      language: metadata.language,
+      average_rating: metadata.averageRating,
+      edition: metadata.edition,
+      isbn: metadata.isbn
+    };
+
+    if (existing) {
+      const { data, error } = await supabase.from('books').update(payload).eq('isbn', isbn).select().single();
+      if (error) throw error;
+      return { data, isNew: false };
+    } else {
+      return { data: payload, isNew: true }; // Just return for preview in the form
+    }
   }
 };

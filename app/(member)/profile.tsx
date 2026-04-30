@@ -42,7 +42,7 @@ export default function ProfileScreen() {
   const updateProfile = useAuthStore((state) => state.updateProfile);
   
   const { borrows, books, gamification } = useLibrary();
-  const { data: myBorrows, isLoading: loadingBorrows } = borrows.getMyBorrows();
+  const { data: myBorrows, isLoading: loadingBorrows } = borrows.list();
   const { data: allBooks } = books.list();
   const { data: allBadges } = gamification.getBadges();
   const { data: myBadges } = gamification.getMyBadges();
@@ -346,7 +346,7 @@ export default function ProfileScreen() {
           <DigitalMembershipPass 
             member={{
               id: profile?.id || 'GUEST',
-              full_name: profile?.fullName || 'Thành viên',
+              fullName: profile?.fullName || 'Thành viên',
               level: profile?.level || 1,
               xp: profile?.xp || 0
             }} 

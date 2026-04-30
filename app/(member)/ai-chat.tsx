@@ -125,7 +125,7 @@ export default function AIChatPage() {
                   style={styles.suggestionCard}
                   onPress={() => router.push(`/(member)/book/${book.isbn}` as any)}
                 >
-                  <Image source={{ uri: book.cover_url }} style={styles.suggestedCover} />
+                  <Image source={book.cover_url ? { uri: book.cover_url } : undefined} style={styles.suggestedCover} />
                   <View style={styles.suggestedInfo}>
                     <Text style={styles.suggestedTitle} numberOfLines={1}>{book.title}</Text>
                     <Text style={styles.suggestedAuthor}>{book.author}</Text>

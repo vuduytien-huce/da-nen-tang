@@ -3,11 +3,10 @@ import { View, Text, StyleSheet, TouchableOpacity, Image, Dimensions, Share, Mod
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useLibrary } from '../../../src/hooks/useLibrary';
+import { useLibrary, useSocial } from '../../../src/hooks/useLibrary';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, Easing, interpolate } from 'react-native-reanimated';
 import Slider from '@react-native-community/slider';
-import { useSocial } from '../../../src/hooks/library/useSocial';
 
 import { Audio } from 'expo-av';
 
@@ -175,7 +174,7 @@ export default function AudioPlayerScreen() {
 
       <View style={styles.diskSection}>
         <Animated.View style={[styles.diskWrapper, animatedDiskStyle]}>
-          <Image source={{ uri: book.cover_url }} style={styles.diskImage} />
+          <Image source={book.cover_url ? { uri: book.cover_url } : undefined} style={styles.diskImage} />
           <View style={styles.diskCenter} />
         </Animated.View>
       </View>

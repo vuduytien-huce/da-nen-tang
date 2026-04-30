@@ -16,7 +16,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
-import { aiService } from '../services/aiService';
+import { ai } from '../../core/ai';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -75,7 +75,7 @@ export const AiAssistant = () => {
     setLoading(true);
 
     try {
-      const response = await aiService.askLibrarian(userMsg.text);
+      const response = await ai.askLibrarian(userMsg.text);
       const aiMsg: Message = {
         id: (Date.now() + 1).toString(),
         text: response,

@@ -4,7 +4,8 @@ import { useTranslation } from 'react-i18next';
 import { useLibrary } from '../../src/hooks/useLibrary';
 import { BorrowRecord } from '../../src/hooks/useLibrary';
 import { Ionicons } from '@expo/vector-icons';
-import { generateVietQR } from '../../src/services/paymentService';
+import { payment } from '../../src/core/payment';
+const { generateVietQR } = payment;
 import { useAuthStore } from '../../src/store/useAuthStore';
 
 export default function HistoryPage() {

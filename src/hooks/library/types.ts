@@ -26,8 +26,10 @@ export interface BorrowRecord {
   returned_at: string | null;
   status: string;
   fine_amount: number;
+  estimated_fine?: number;
   book?: Book;
   user?: {
-    full_name: string;
+    fullName: string;
+    avatarUrl?: string;
   };
 }

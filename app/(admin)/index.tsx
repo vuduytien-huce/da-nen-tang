@@ -14,10 +14,11 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { supabase } from '../../src/api/supabase';
-import { LanguageSelector } from '../../src/components/LanguageSelector';
-import { useAuthStore } from '../../src/store/useAuthStore';
-import { adminService } from '../../src/features/admin/admin.service';
+import { supabase } from '@/src/api/supabase';
+import { LanguageSelector } from '@/src/components/LanguageSelector';
+import { useAuthStore } from '@/src/store/useAuthStore';
+import { adminService } from '@/src/features/admin/admin.service';
+import { useTranslation } from 'react-i18next';
 
 // Removed unused width constant
 
@@ -25,6 +26,7 @@ export default function AdminDashboard() {
   const queryClient = useQueryClient();
   const router = useRouter();
   const { profile, logout } = useAuthStore();
+  const { t } = useTranslation();
 
   const { data: users, isLoading } = useQuery({
     queryKey: ['admin_users'],
@@ -54,7 +56,7 @@ export default function AdminDashboard() {
       newRole: string;
     }) => adminService.updateUser(userId, { role: newRole }),
     onSuccess: () => {
-      Alert.alert('Thành công', 'Đã cập nhật quyền người dùng');
+      Alert.alert(t('common.success'), t('messages.book_updated')); // Reusing book_updated for generic update
       queryClient.invalidateQueries({ queryKey: ['admin_users'] });
     },
   });
@@ -62,50 +64,50 @@ export default function AdminDashboard() {
   const deleteUser = useMutation({
     mutationFn: (userId: string) => adminService.deleteUser(userId),
     onSuccess: () => {
-      Alert.alert('Thành công', 'Đã xóa người dùng');
+      Alert.alert(t('common.success'), t('messages.book_deleted')); // Reusing book_deleted for generic delete
       queryClient.invalidateQueries({ queryKey: ['admin_users'] });
     },
   });
 
   const handleRoleChange = (userId: string, currentRole: string) => {
     Alert.alert(
-      'Phân quyền người dùng',
-      'Chọn vai trò mới cho người dùng này:',
+      t('librarian.manage_admins'),
+      t('librarian.manage_admins_desc'),
       [
         {
-          text: 'Member',
+          text: t('roles.member'),
           onPress: () => updateRole.mutate({ userId, newRole: 'MEMBER' }),
         },
         {
-          text: 'Librarian',
+          text: t('roles.librarian'),
           onPress: () => updateRole.mutate({ userId, newRole: 'LIBRARIAN' }),
         },
         {
-          text: 'Admin',
+          text: t('roles.admin'),
           onPress: () => updateRole.mutate({ userId, newRole: 'ADMIN' }),
         },
-        { text: 'Hủy', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
       ],
     );
   };
 
   const stats = [
     {
-      label: 'Thành viên',
+      label: t('analytics.kpi_members'),
       value: users?.length || 0,
       icon: 'people',
       bgColor: '#3A75F2',
       flex: 1,
     },
     {
-      label: 'Tổng số sách',
+      label: t('librarian.inventory'),
       value: totalCopies,
       icon: 'library',
       bgColor: '#10B981',
       flex: 1.2,
     },
     {
-      label: 'Hệ thống',
+      label: t('admin.system'),
       value: 'OK',
       icon: 'checkmark-circle',
       bgColor: '#F59E0B',
@@ -116,12 +118,12 @@ export default function AdminDashboard() {
 
   const handleDeleteUser = (userId: string) => {
     Alert.alert(
-      'Xóa người dùng',
-      'Bạn có chắc chắn muốn xóa người dùng này không? Hành động này không thể hoàn tác.',
+      t('librarian.delete_confirm'),
+      t('librarian.delete_confirm_msg'),
       [
-        { text: 'Hủy', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Xóa',
+          text: t('librarian.reject'),
           style: 'destructive',
           onPress: () => deleteUser.mutate(userId),
         },
@@ -139,13 +141,13 @@ export default function AdminDashboard() {
         {/* Header Section with Logout */}
         <View style={styles.header}>
           <View>
-            <Text style={styles.welcome}>Quản trị viên</Text>
+            <Text style={styles.welcome}>{t('roles.admin')}</Text>
             <Text style={styles.name}>{profile?.fullName || 'Admin'}</Text>
           </View>
           <View style={styles.headerActions}>
             <LanguageSelector />
             <TouchableOpacity
-              onPress={() => Alert.alert('Thông báo', 'Hệ thống Admin chưa có nhật ký thông báo riêng. Vui lòng kiểm tra Audit Logs.')}
+              onPress={() => Alert.alert(t('common.error'), t('admin.audit_logs_desc'))}
               style={styles.notifBtn}
             >
               <Ionicons
@@ -202,8 +204,8 @@ export default function AdminDashboard() {
                 <Ionicons name="bar-chart" size={24} color="#3A75F2" />
               </View>
               <View style={styles.flex1}>
-                <Text style={styles.reportsTitle}>Báo cáo</Text>
-                <Text style={styles.reportsSubtitle}>Xuất dữ liệu</Text>
+                <Text style={styles.reportsTitle}>{t('tabs.reports')}</Text>
+                <Text style={styles.reportsSubtitle}>{t('analytics.overview')}</Text>
               </View>
             </LinearGradient>
           </TouchableOpacity>
@@ -222,11 +224,11 @@ export default function AdminDashboard() {
                   { backgroundColor: 'rgba(58, 117, 242, 0.15)' },
                 ]}
               >
-                <Ionicons name="checkmark-circle" size={24} color="#3A75F2" />
+                <Ionicons name="list" size={24} color="#3A75F2" />
               </View>
               <View style={styles.flex1}>
-                <Text style={styles.reportsTitle}>Nhật ký</Text>
-                <Text style={styles.reportsSubtitle}>Audit Logs</Text>
+                <Text style={styles.reportsTitle}>{t('tabs.audit')}</Text>
+                <Text style={styles.reportsSubtitle}>{t('admin.audit_logs')}</Text>
               </View>
             </LinearGradient>
           </TouchableOpacity>
@@ -234,7 +236,7 @@ export default function AdminDashboard() {
 
         {/* User Management Section */}
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Quản lý người dùng</Text>
+          <Text style={styles.sectionTitle}>{t('tabs.users')}</Text>
           <TouchableOpacity
             onPress={() =>
               queryClient.invalidateQueries({ queryKey: ['admin_users'] })
@@ -246,7 +248,7 @@ export default function AdminDashboard() {
 
         <View style={styles.userList}>
           {isLoading ? (
-            <Text style={styles.loadingText}>Đang tải danh sách...</Text>
+            <Text style={styles.loadingText}>{t('messages.loading')}</Text>
           ) : Array.isArray(users) && users.length > 0 ? (
             users.map((item: any) => (
               <UserCard
@@ -257,7 +259,7 @@ export default function AdminDashboard() {
               />
             ))
           ) : (
-            <Text style={styles.loadingText}>Chưa có người dùng nào.</Text>
+            <Text style={styles.loadingText}>{t('messages.no_results')}</Text>
           )}
         </View>
 
@@ -271,11 +273,11 @@ const UserCard = React.memo(({ item, onEdit, onDelete }: { item: any, onEdit: ()
   <View style={styles.userCard}>
     <View style={styles.userAvatar}>
       <Text style={styles.avatarText}>
-        {item.full_name?.charAt(0) || 'U'}
+        {item.fullName?.charAt(0) || 'U'}
       </Text>
     </View>
     <View style={styles.userInfo}>
-      <Text style={styles.userName}>{item.full_name}</Text>
+      <Text style={styles.userName}>{item.fullName}</Text>
       <View style={styles.roleBadge}>
         <Text style={styles.roleText}>{item.role}</Text>
       </View>

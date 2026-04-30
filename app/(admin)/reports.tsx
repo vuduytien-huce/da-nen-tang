@@ -103,13 +103,12 @@ export default function ReportsScreen() {
             </View>
 
             <AnalyticsHeatmap 
-              title="Tần suất mượn sách"
               data={[
-                { date: "2024-03-01", count: 2 },
-                { date: "2024-03-05", count: 5 },
-                { date: "2024-03-10", count: 3 },
-                { date: "2024-04-15", count: 8 },
-                { date: "2024-04-20", count: 4 },
+                { day: "2024-03-01", count: 2 },
+                { day: "2024-03-05", count: 5 },
+                { day: "2024-03-10", count: 3 },
+                { day: "2024-04-15", count: 8 },
+                { day: "2024-04-20", count: 4 },
               ]}
             />
 
@@ -121,15 +120,7 @@ export default function ReportsScreen() {
               }}
             />
 
-            <BranchMap 
-              branches={(reportData as any).branchInventory || [
-                { id: '1', name: 'Chi nhánh Trung Tâm', location: 'Quận 1, TP.HCM', available_copies: 45, total_copies: 50 },
-                { id: '2', name: 'Chi nhánh Quận 7', location: 'Phú Mỹ Hưng, Q7', available_copies: 12, total_copies: 40 },
-                { id: '3', name: 'Chi nhánh Thủ Đức', location: 'TP. Thủ Đức', available_copies: 30, total_copies: 45 },
-                { id: '4', name: 'Chi nhánh Bình Thạnh', location: 'Q. Bình Thạnh', available_copies: 8, total_copies: 35 },
-              ]}
-              title="Tình trạng Kho bãi theo Chi nhánh"
-            />
+            <BranchMap />
 
             <View style={styles.exportSection}>
               <Text style={styles.sectionTitle}>Xuất dữ liệu</Text>

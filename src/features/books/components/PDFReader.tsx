@@ -4,7 +4,7 @@ import { View, StyleSheet, TouchableOpacity, Text, SafeAreaView, ActivityIndicat
 import { WebView } from 'react-native-webview'; // Cần cài react-native-webview
 import { Ionicons } from '@expo/vector-icons';
 import * as Sharing from 'expo-sharing';
-import { downloadService } from '../services/downloadService';
+import { membersService } from '../../members/members.service';
 import NetInfo from '@react-native-community/netinfo';
 
 interface PDFReaderProps {
@@ -29,7 +29,7 @@ export const PDFReader: React.FC<PDFReaderProps> = ({ url, title, isbn, onClose 
       setIsOffline(!netState.isConnected);
 
       if (isbn) {
-        const local = await downloadService.getLocalUri(isbn);
+        const local = await membersService.getLocalUri(isbn);
         if (local) setLocalUri(local);
       }
     };
@@ -104,8 +104,7 @@ export const PDFReader: React.FC<PDFReaderProps> = ({ url, title, isbn, onClose 
                   try {
                     // We'll need to use the hook or service here
                     // Since this is a component, it's better to pass an onAddAnnotation prop or use the service directly
-                    const { annotationService } = await import('../services/annotationService');
-                    await annotationService.create({
+                    await membersService.createAnnotation({
                       book_isbn: isbn,
                       content: noteText.trim(),
                       location: { page: 'current' },

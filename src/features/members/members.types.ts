@@ -14,16 +14,18 @@ export interface BorrowRecord {
   returned_at: string | null;
   status: string;
   fine_amount: number;
-  book?: any; // Generic to avoid circular dependency with Books feature
+  estimated_fine?: number;
+  book?: any; 
   user?: {
-    full_name: string;
+    fullName: string;
+    avatarUrl?: string;
   };
 }
 
 export interface MemberProfile {
   id: string;
-  full_name: string;
-  avatar_url?: string;
+  fullName: string;
+  avatarUrl?: string;
   role: string;
   points: number;
   level: number;
@@ -38,8 +40,18 @@ export interface Annotation {
   page_number?: number;
   created_at: string;
   is_public: boolean;
-  profiles?: {
-    full_name: string;
-    avatar_url?: string;
+  color?: string;
+  user?: {
+    fullName: string;
+    avatarUrl?: string;
   };
 }
+
+export interface DownloadedFile {
+  id: string;
+  title: string;
+  uri: string;
+  type: 'EPUB' | 'MP3';
+  downloaded_at: string;
+}
+

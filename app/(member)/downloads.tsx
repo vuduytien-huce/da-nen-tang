@@ -2,20 +2,19 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, SafeAreaView, ActivityIndicator, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { downloadService, DownloadInfo } from '../../src/services/downloadService';
+import { membersService } from '../../src/features/members/members.service';
+import { DownloadedFile } from '../../src/features/members/members.types';
 import { useLibrary } from '../../src/hooks/useLibrary';
 import { LinearGradient } from 'expo-linear-gradient';
 
 export default function DownloadsScreen() {
   const router = useRouter();
-  const [downloads, setDownloads] = useState<DownloadInfo[]>([]);
+  const [downloads, setDownloads] = useState<DownloadedFile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const { books } = useLibrary();
-  const { data: allBooks } = books.list();
 
   const loadDownloads = async () => {
     setIsLoading(true);
-    const data = await downloadService.getAllDownloads();
+    const data = await membersService.getDownloads();
     setDownloads(data);
     setIsLoading(false);
   };
@@ -30,7 +29,7 @@ export default function DownloadsScreen() {
           text: 'Xóa tất cả', 
           style: 'destructive',
           onPress: async () => {
-            await downloadService.clearAll();
+            await membersService.clearAll();
             loadDownloads();
           }
         }
@@ -52,7 +51,7 @@ export default function DownloadsScreen() {
           text: 'Xóa', 
           style: 'destructive',
           onPress: async () => {
-            await downloadService.removeFile(isbn);
+            await membersService.deleteDownload(isbn);
             loadDownloads();
           }
         }
@@ -60,27 +59,25 @@ export default function DownloadsScreen() {
     );
   };
 
-  const renderItem = ({ item }: { item: DownloadInfo }) => {
-    const book = allBooks?.find(b => b.isbn === item.isbn);
-    
+  const renderItem = ({ item }: { item: DownloadedFile }) => {
     return (
       <View style={styles.downloadItem}>
         <View style={styles.iconBox}>
           <Ionicons 
-            name={item.fileType === 'mp3' ? 'musical-notes' : 'document-text'} 
+            name={item.type === 'MP3' ? 'musical-notes' : 'document-text'} 
             size={24} 
             color="#3A75F2" 
           />
         </View>
         
         <View style={styles.info}>
-          <Text style={styles.title} numberOfLines={1}>{book?.title || item.isbn}</Text>
+          <Text style={styles.title} numberOfLines={1}>{item.title}</Text>
           <Text style={styles.subtitle}>
-            {item.fileType.toUpperCase()} • {new Date(item.downloadedAt).toLocaleDateString('vi-VN')}
+            {item.type} • {new Date(item.downloaded_at).toLocaleDateString('vi-VN')}
           </Text>
         </View>
 
-        <TouchableOpacity onPress={() => handleDelete(item.isbn)} style={styles.deleteBtn}>
+        <TouchableOpacity onPress={() => handleDelete(item.id)} style={styles.deleteBtn}>
           <Ionicons name="trash-outline" size={20} color="#EF4444" />
         </TouchableOpacity>
       </View>
@@ -108,7 +105,7 @@ export default function DownloadsScreen() {
       ) : (
         <FlatList
           data={downloads}
-          keyExtractor={(item) => item.isbn}
+          keyExtractor={(item) => item.id}
           renderItem={renderItem}
           contentContainerStyle={styles.list}
           ListEmptyComponent={
