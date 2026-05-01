@@ -18,6 +18,7 @@ export interface Profile {
   badges?: any[];
   is_locked: boolean;
   lock_reason: string | null;
+  locale: string | null;
 }
 
 export interface AuthState {
@@ -31,7 +32,8 @@ export interface AuthActions {
   setSession: (session: Session | null) => Promise<void>;
   fetchProfile: (userId: string) => Promise<void>;
   updateAvatar: (url: string) => void;
-  updateProfile: (data: Partial<Pick<Profile, 'fullName' | 'bio' | 'favoriteGenres'>>) => void;
+  updateProfile: (data: Partial<Pick<Profile, 'fullName' | 'bio' | 'favoriteGenres' | 'locale'>>) => void;
+  updateLocale: (locale: string) => void;
   logout: () => Promise<void>;
   forceInitialize: () => void;
 }
@@ -48,8 +50,8 @@ export const useAuthStore = create<AuthStore>()(
     setSession: async (session) => {
       if (session?.user) {
         set({ session, loading: true });
-        await get().fetchProfile(session.user.id);
-        set({ loading: false, initialized: true });
+        // Don't await here to allow initialized: true to be set faster if cache hits
+        get().fetchProfile(session.user.id);
       } else {
         set({
           session: null,
@@ -75,10 +77,25 @@ export const useAuthStore = create<AuthStore>()(
         const updated = { ...current, ...data };
         set({ profile: updated });
         membersService.saveProfile(updated);
+        // Sync with DB
+        supabase.from('profiles').update(data).eq('id', current.id).then();
+      }
+    },
+
+    updateLocale: (locale: string) => {
+      const current = get().profile;
+      if (current) {
+        get().updateProfile({ locale });
       }
     },
 
     fetchProfile: async (userId) => {
+      // 1. Immediate initialization from cache if available
+      const cached = await membersService.getProfile();
+      if (cached && cached.id === userId) {
+        set({ profile: cached, initialized: true, loading: false });
+      }
+
       try {
         const currentSession = get().session;
         const metadata = currentSession?.user?.user_metadata || {};
@@ -99,7 +116,7 @@ export const useAuthStore = create<AuthStore>()(
         // 2. Fetch from DB
         const { data, error, status } = await supabase
           .from("profiles")
-          .select("*, fullName:full_name, avatarUrl:avatar_url, favoriteGenres:favorite_genres")
+          .select("*, fullName:full_name, avatarUrl:avatar_url, favoriteGenres:favorite_genres, locale")
           .eq("id", userId)
           .single();
 
@@ -144,7 +161,8 @@ export const useAuthStore = create<AuthStore>()(
                   level: 1,
                   badges: [],
                   is_locked: false,
-                  lock_reason: null
+                  lock_reason: null,
+                  locale: 'vi'
                 },
               });
               return;
@@ -164,7 +182,8 @@ export const useAuthStore = create<AuthStore>()(
             level: 1,
             badges: [],
             is_locked: false,
-            lock_reason: null
+            lock_reason: null,
+            locale: 'vi'
           } });
         } else if (data) {
           const profile = { 
@@ -177,16 +196,8 @@ export const useAuthStore = create<AuthStore>()(
         }
       } catch (error) {
         console.error("[AuthStore] fetchProfile unexpected error:", error);
-        // Fallback to offline storage
-        const cachedProfile = await membersService.getProfile();
-        if (cachedProfile) {
-          console.log("[AuthStore] Loaded profile from offline cache");
-          set({ profile: cachedProfile });
-        } else {
-          set({ profile: null });
-        }
       } finally {
-        set({ loading: false });
+        set({ loading: false, initialized: true });
       }
     },
 

@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useMember, useAnnotations, useSocial, useBookClubs } from './library/useMember';
 import { useClubChat } from './library/useClubChat';
 import { useAdmin } from './library/useAdmin';
@@ -22,8 +23,11 @@ export function useLibrary() {
   const content = useContent();
   const system = useSystem();
   const analytics = useAnalytics();
+  
+  // bookClubs needs to be called as a hook, but we can't do it inside useMemo
+  const bookClubs = useBookClubs();
 
-  return {
+  return useMemo(() => ({
     // Member Domain
     ...member,
     
@@ -39,7 +43,7 @@ export function useLibrary() {
     },
 
     // Community & Social
-    bookClubs: useBookClubs(),
+    bookClubs,
 
     // Gamification
     gamification: member.gamification,
@@ -65,5 +69,5 @@ export function useLibrary() {
     useSystem,
     useClubChat,
     useBookClubs
-  };
+  }), [member, admin, content, system, analytics, bookClubs]);
 }

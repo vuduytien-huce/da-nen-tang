@@ -19,8 +19,10 @@ import { supabase } from '@/src/api/supabase';
 import { adminService } from '@/src/features/admin/admin.service';
 import { SecurityAuditResult } from '@/src/features/admin/admin.types';
 import { useAuthStore } from '@/src/store/useAuthStore';
+import { useRouter } from 'expo-router';
 
 export default function AdminSystem() {
+  const router = useRouter();
   const { t } = useTranslation();
   const profile = useAuthStore((state) => state.profile);
   const [showAddModal, setShowAddModal] = React.useState(false);
@@ -177,8 +179,12 @@ export default function AdminSystem() {
     </View>
   );
 
-  const StatCard = ({ title, value, subValue, icon, color }: any) => (
-    <View style={styles.statCard}>
+  const StatCard = ({ title, value, subValue, icon, color, onPress }: any) => (
+    <TouchableOpacity 
+      onPress={onPress}
+      disabled={!onPress}
+      style={styles.statCard}
+    >
       <View style={styles.statCardContent}>
         <View>
           <Text style={styles.statCardTitle}>{title}</Text>
@@ -191,7 +197,7 @@ export default function AdminSystem() {
           <Ionicons name={icon} size={28} color={color} />
         </View>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 
   return (
@@ -291,6 +297,7 @@ export default function AdminSystem() {
             subValue={`+12% ${t('common.total_borrows')}`}
             icon="people"
             color="#4F8EF7"
+            onPress={() => router.push('/(admin)?scroll=users')}
           />
           <StatCard
             title={t('admin.available_books')}
@@ -298,6 +305,7 @@ export default function AdminSystem() {
             subValue={t('admin.growth_stable')}
             icon="library"
             color="#10B981"
+            onPress={() => router.push('/(admin)/inventory')}
           />
         </View>
 

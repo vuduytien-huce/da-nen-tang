@@ -3,10 +3,17 @@ import { Redirect, Tabs } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import ErrorBoundary from '../../src/components/ErrorBoundary';
 import { useAuthStore } from '../../src/store/useAuthStore';
+import { useTabBarStore } from '../../src/store/useTabBarStore';
+
+import { useSegments } from 'expo-router';
 
 export default function AdminLayout() {
   const session = useAuthStore((state) => state.session);
   const { t } = useTranslation();
+  const segments = useSegments();
+  const isTabBarVisible = useTabBarStore((state) => state.isVisible);
+
+  const isMainScreen = segments.length === 1 || String(segments[segments.length - 1]) === 'index' || (segments.length === 2 && String(segments[1]) === '');
 
   if (!session) {
     return <Redirect href="/(auth)/login" />;
@@ -18,10 +25,24 @@ export default function AdminLayout() {
         screenOptions={{
           headerShown: false,
           tabBarStyle: {
+            position: 'absolute',
+            bottom: 8,
+            left: 12,
+            right: 12,
             backgroundColor: '#0B0F1A',
-            borderTopColor: '#1E2540',
-            height: 65,
+            borderColor: '#2C354D',
+            borderWidth: 1,
+            borderRadius: 16,
+            overflow: 'hidden',
+            height: isMainScreen ? 65 : 65.1,
             paddingBottom: 10,
+            transform: isMainScreen || isTabBarVisible ? [{ translateY: 0 }] : [{ translateY: 65 }],
+            opacity: isMainScreen || isTabBarVisible ? 1 : 0,
+          },
+          tabBarItemStyle: {
+            borderRightWidth: 0.5,
+            borderRightColor: '#1E2540',
+            height: '100%',
           },
           tabBarActiveTintColor: '#4F8EF7',
           tabBarInactiveTintColor: '#5A5F7A',
@@ -34,9 +55,9 @@ export default function AdminLayout() {
         <Tabs.Screen
           name="index"
           options={{
-            title: t('tabs.users'),
+            title: t('tabs.home'),
             tabBarIcon: ({ color, size }) => (
-              <Ionicons name="people" color={color} size={size} />
+              <Ionicons name="home" color={color} size={size} />
             ),
           }}
         />
@@ -92,6 +113,12 @@ export default function AdminLayout() {
             tabBarIcon: ({ color, size }) => (
               <Ionicons name="settings" color={color} size={size} />
             ),
+          }}
+        />
+        <Tabs.Screen
+          name="security-logs"
+          options={{
+            href: null,
           }}
         />
       </Tabs>

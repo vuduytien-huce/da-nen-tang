@@ -1,22 +1,22 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMemo, useCallback } from 'react';
 import { supabase } from '../../api/supabase';
 
 export function useAnalytics() {
   const queryClient = useQueryClient();
 
-  const getBorrowingHeatmap = () => useQuery({
+  const getBorrowingHeatmap = useCallback(() => useQuery({
     queryKey: ['borrowing-heatmap'],
     queryFn: async () => {
       const { data, error } = await supabase.from('branch_borrow_heatmap').select('*');
       if (error) throw error;
       return data || [];
     }
-  });
+  }), []);
 
-  const getRetentionStats = () => useQuery({
+  const getRetentionStats = useCallback(() => useQuery({
     queryKey: ['retention-stats'],
     queryFn: async () => {
-      // Mock or RPC call
       return {
         active_members: 124,
         return_rate: 92,
@@ -24,32 +24,30 @@ export function useAnalytics() {
         avg_borrow_duration: 12
       };
     }
-  });
+  }), []);
 
-  const getInventoryHealth = () => useQuery({
+  const getInventoryHealth = useCallback(() => useQuery({
     queryKey: ['inventory-health'],
     queryFn: async () => {
       const { data, error } = await supabase.rpc('generate_library_report', { report_type: 'INVENTORY' });
       if (error) throw error;
       return data || { out_of_stock_count: 0, dead_stock_count: 0 };
     }
-  });
+  }), []);
 
-  const getPeakHours = () => useQuery({
+  const getPeakHours = useCallback(() => useQuery({
     queryKey: ['peak-hours'],
     queryFn: async () => {
-      // Mock data for now or aggregate from borrow_records
       return Array.from({ length: 12 }, (_, i) => ({
         hour: (i * 2 + 8) % 24,
         count: Math.floor(Math.random() * 50) + 10
       }));
     }
-  });
+  }), []);
 
-  const getPredictedDemand = () => useQuery({
+  const getPredictedDemand = useCallback(() => useQuery({
     queryKey: ['predicted-demand'],
     queryFn: async () => {
-      // Mock data based on demand-prediction.tsx expectations
       return {
         predictions: [
           { title: 'Tâm Lý Học Tội Phạm', category: 'Tâm lý', recentBorrows: 45, borrows: 890 },
@@ -72,12 +70,11 @@ export function useAnalytics() {
         ]
       };
     }
-  });
+  }), []);
 
-  const getDeepInsights = () => useQuery({
+  const getDeepInsights = useCallback(() => useQuery({
     queryKey: ['deep_insights'],
     queryFn: async () => {
-      // Aggregate stats and demand forecast
       const { data: rawStats, error: statsError } = await supabase.rpc('get_library_stats_v2');
       if (statsError) console.error('Stats RPC Error:', statsError);
       
@@ -107,14 +104,65 @@ export function useAnalytics() {
         ]
       };
     }
-  });
+  }), []);
 
-  return {
+  // Member-specific Analytics (Synchronized with useMember)
+  const getGenres = useCallback((userId: string | undefined) => useQuery({
+    queryKey: ['analytics_genres', userId],
+    enabled: !!userId,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_member_genres', { p_user_id: userId });
+      if (error) throw error;
+      return data || [];
+    }
+  }), []);
+
+  const getActivity = useCallback((userId: string | undefined) => useQuery({
+    queryKey: ['analytics_activity', userId],
+    enabled: !!userId,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_member_activity', { p_user_id: userId });
+      if (error) throw error;
+      return data || [];
+    }
+  }), []);
+
+  const getMonthly = useCallback((userId: string | undefined) => useQuery({
+    queryKey: ['analytics_monthly', userId],
+    enabled: !!userId,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_member_monthly', { p_user_id: userId });
+      if (error) throw error;
+      
+      const labels = (data || []).map((row: any) => row.month);
+      const values = (data || []).map((row: any) => row.count);
+      
+      return {
+        labels: labels.length > 0 ? labels : ['None'],
+        datasets: [{ data: values.length > 0 ? values : [0] }]
+      };
+    }
+  }), []);
+
+  return useMemo(() => ({
     getBorrowingHeatmap,
     getRetentionStats,
     getInventoryHealth,
     getPeakHours,
     getPredictedDemand,
-    getDeepInsights
-  };
+    getDeepInsights,
+    getGenres,
+    getActivity,
+    getMonthly
+  }), [
+    getBorrowingHeatmap,
+    getRetentionStats,
+    getInventoryHealth,
+    getPeakHours,
+    getPredictedDemand,
+    getDeepInsights,
+    getGenres,
+    getActivity,
+    getMonthly
+  ]);
 }

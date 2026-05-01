@@ -72,7 +72,8 @@ export function useContent() {
     queryFn: async () => {
       const { data, error } = await supabase.from('audiobook_metadata').select('*').eq('id', id).single();
       if (error) throw error;
-      return data;
+      const enriched = await booksService.enrichWithBookMetadata([data]);
+      return enriched[0];
     },
     enabled: !!id
   });

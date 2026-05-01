@@ -1,67 +1,61 @@
-import React, { useState } from "react";
-import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  Image,
-  StyleSheet,
-  Dimensions,
-  SafeAreaView,
-  StatusBar,
-  ActivityIndicator,
-} from "react-native";
-import { useLibrary } from "../../src/hooks/useLibrary";
-import { useAuthStore } from "../../src/store/useAuthStore";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
-import { LinearGradient } from "expo-linear-gradient";
+import NetInfo, { NetInfoState } from "@react-native-community/netinfo";
 import { Audio } from "expo-av";
-import Animated, {
-  FadeIn,
-  FadeInDown,
-  FadeInUp,
-  useSharedValue,
-  useAnimatedStyle,
-  withRepeat,
-  withTiming,
-  withSequence,
-  interpolate,
-} from "react-native-reanimated";
 import { BlurView } from "expo-blur";
-import { Modal, Alert } from "react-native";
-import { haptics } from "../../src/core/haptics";
-import { ai } from "../../src/core/ai";
-import { PieChart, LineChart } from "react-native-chart-kit";
+import { LinearGradient } from "expo-linear-gradient";
+import { useRouter } from "expo-router";
+import React, { useState } from "react";
+import { useTranslation } from "react-i18next";
+import {
+  ActivityIndicator,
+  Alert,
+  Dimensions,
+  Image,
+  Modal,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { LineChart, PieChart } from "react-native-chart-kit";
+import Animated, { FadeInDown, FadeInUp } from "react-native-reanimated";
+import { supabase } from "../../src/api/supabase";
+import { AnimatedWrapper } from "../../src/components/AnimatedWrapper";
+import { LanguageMenuToggle } from "../../src/components/LanguageSwitcher";
 import { NotificationCenter } from "../../src/components/NotificationCenter";
+import { ai } from "../../src/core/ai";
+import { haptics } from "../../src/core/haptics";
+import { sync, SyncAction } from "../../src/core/sync";
 import { OfflineCard } from "../../src/features/members/components/OfflineCard";
 import { membersService } from "../../src/features/members/members.service";
-import { BorrowRecord, Book } from "../../src/hooks/library/types";
-import { useTranslation } from "react-i18next";
-import { AnimatedWrapper } from "../../src/components/AnimatedWrapper";
-import { sync, SyncAction } from "../../src/core/sync";
-import NetInfo, { NetInfoState } from "@react-native-community/netinfo";
-import { useGamification } from "../../src/hooks/useGamification";
-import { useConnectivity } from "../../src/hooks/useConnectivity";
+import { Book, BorrowRecord } from "../../src/hooks/library/types";
 import { useBroadcast } from "../../src/hooks/useBroadcast";
-import { supabase } from "../../src/api/supabase";
+import { useConnectivity } from "../../src/hooks/useConnectivity";
+import { useGamification } from "../../src/hooks/useGamification";
+import { useLibrary } from "../../src/hooks/useLibrary";
+import { useAuthStore } from "../../src/store/useAuthStore";
 
 const { width } = Dimensions.get("window");
 
-const ChartPlaceholder = ({ title }: { title: string }) => (
-  <View style={styles.placeholderContainer}>
-    <Ionicons name="analytics-outline" size={42} color="#2D3142" />
-    <Text style={styles.placeholderTitle}>{title}</Text>
-    <Text style={styles.placeholderSub}>
-      Dữ liệu sẽ hiển thị khi bạn bắt đầu mượn sách
-    </Text>
-  </View>
-);
+const ChartPlaceholder = ({ title }: { title: string }) => {
+  const { t } = useTranslation();
+  return (
+    <View style={styles.placeholderContainer}>
+      <Ionicons name="analytics-outline" size={42} color="#2D3142" />
+      <Text style={styles.placeholderTitle}>{title}</Text>
+      <Text style={styles.placeholderSub}>{t("messages.no_history")}</Text>
+    </View>
+  );
+};
 
 export default function MemberHome() {
   const router = useRouter();
   const { t } = useTranslation();
   const profile = useAuthStore((state) => state.profile);
+  const session = useAuthStore((state) => state.session);
   const logout = useAuthStore((state) => state.logout);
   const { books, borrows, recommendations, feed } = useLibrary();
   const { latestMessage, dismissLatest } = useBroadcast();
@@ -83,6 +77,7 @@ export default function MemberHome() {
   const myBorrows = onlineBorrows || offlineBorrows;
   const { isOnline, isSyncing, triggerSync } = useConnectivity();
   const [isOfflineCardVisible, setIsOfflineCardVisible] = useState(false);
+  const [isProfileMenuVisible, setIsProfileMenuVisible] = useState(false);
   const [aiRecs, setAiRecs] = useState<Book[]>([]);
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [isListening, setIsListening] = useState(false);
@@ -301,8 +296,10 @@ export default function MemberHome() {
   const activeBorrowedCount =
     myBorrows?.filter((b: BorrowRecord) => b.status === "BORROWED").length || 0;
   const totalFine =
-    myBorrows?.reduce((acc: number, r: BorrowRecord) => acc + (r.estimated_fine || 0), 0) ||
-    0;
+    myBorrows?.reduce(
+      (acc: number, r: BorrowRecord) => acc + (r.estimated_fine || 0),
+      0,
+    ) || 0;
   const hasOverdue = myBorrows?.some(
     (b: BorrowRecord) =>
       b.status === "BORROWED" &&
@@ -358,7 +355,9 @@ export default function MemberHome() {
           acc.push({
             name: genre,
             population: 1,
-            color: chartColors[acc.length % chartColors.length],
+            color: ["#10B981", "#34D399", "#059669", "#10B981", "#6EE7B7"][
+              acc.length % 5
+            ],
             legendFontColor: "#8A8F9E",
             legendFontSize: 11,
           });
@@ -380,13 +379,13 @@ export default function MemberHome() {
   }, [myBorrows]);
 
   const chartConfig = {
-    backgroundGradientFrom: "#171B2B",
-    backgroundGradientTo: "#171B2B",
-    color: (opacity = 1) => `rgba(58, 117, 242, ${opacity})`,
+    backgroundGradientFrom: "#0F172A",
+    backgroundGradientTo: "#0F172A",
+    color: (opacity = 1) => `rgba(16, 185, 129, ${opacity})`,
     strokeWidth: 2,
     barPercentage: 0.5,
     useShadowColorFromDataset: false,
-    labelColor: (opacity = 1) => `rgba(138, 143, 158, ${opacity})`,
+    labelColor: (opacity = 1) => `rgba(148, 163, 184, ${opacity})`,
   };
 
   return (
@@ -419,132 +418,199 @@ export default function MemberHome() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {/* Header Section with Logout */}
-        <Animated.View entering={FadeIn.duration(800)} style={styles.header}>
-          {!isOnline && (
-            <TouchableOpacity
-              style={styles.offlineIndicator}
-              onPress={() => triggerSync()}
-            >
-              <Ionicons name="cloud-offline" size={14} color="#F59E0B" />
-              <Text style={styles.offlineIndicatorText}>
-                {isSyncing ? "Đang đồng bộ..." : "Offline"}
-              </Text>
-            </TouchableOpacity>
-          )}
-          <View style={styles.headerInfo}>
+        {/* Friendly Profile Header */}
+        <Animated.View
+          entering={FadeInDown.delay(200)}
+          style={styles.friendlyHeader}
+        >
+          <View style={styles.greetingRow}>
             <View>
-              <Text style={styles.welcomeText}>
-                Xin chào, {profile?.fullName?.split(" ")[0] || "Độc giả"}
-              </Text>
-              <Text
-                style={styles.nameText}
-                accessibilityLabel={`BiblioTech Member: ${profile?.fullName || "Độc giả"}`}
-              >
-                BiblioTech Member
+              <Text style={styles.friendlyGreeting}>Chào buổi sáng,</Text>
+              <Text style={styles.friendlyName}>
+                {profile?.fullName || "Độc giả"}
               </Text>
             </View>
-          </View>
-          <View style={{ flexDirection: "row", alignItems: "center" }}>
-            <TouchableOpacity
-              onPress={() => {
-                haptics.light();
-                setIsOfflineCardVisible(true);
-              }}
-              style={[
-                styles.iconBtn,
-                { backgroundColor: "rgba(58, 117, 242, 0.1)" },
-              ]}
-              accessibilityRole="button"
-              accessibilityLabel="Mở thẻ thành viên"
-              accessibilityHint="Hiển thị mã QR thành viên để mượn sách tại quầy"
-            >
-              <Ionicons name="qr-code-outline" size={20} color="#3A75F2" />
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => {
-                haptics.light();
-                router.push("/(member)/search" as any);
-              }}
-              style={styles.iconBtn}
-              accessibilityRole="button"
-              accessibilityLabel="Tìm kiếm sách"
-              accessibilityHint="Tìm kiếm theo tên sách, tác giả hoặc thể loại"
-            >
-              <Ionicons name="search" size={20} color="#FFFFFF" />
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => {
-                haptics.light();
-                router.push("/(member)/achievements" as any);
-              }}
-              style={[styles.iconBtn, { marginLeft: 12 }]}
-              accessibilityRole="button"
-              accessibilityLabel="Thành tựu và Cấp độ"
-              accessibilityHint={`Bạn đang ở cấp độ ${profile?.level || 1}. Nhấn để xem các huy hiệu đã đạt được.`}
-            >
-              <Ionicons name="trophy" size={20} color="#F59E0B" />
-              {profile?.level && (
-                <View style={styles.levelBadge}>
-                  <Text style={styles.levelText}>{profile.level}</Text>
-                </View>
-              )}
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => {
-                haptics.light();
-                router.push("/(member)/downloads" as any);
-              }}
-              style={[styles.iconBtn, { marginLeft: 12 }]}
-              accessibilityRole="button"
-              accessibilityLabel="Quản lý tải xuống"
-              accessibilityHint="Xem và quản lý các sách đã tải về thiết bị"
-            >
-              <Ionicons name="download" size={20} color="#3A75F2" />
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => {
-                haptics.light();
-                router.push("/(member)/notifications" as any);
-              }}
-              style={[styles.iconBtn, { marginLeft: 12 }]}
-              accessibilityRole="button"
-              accessibilityLabel="Thông báo"
-            >
-              <Ionicons name="notifications" size={20} color="#FFFFFF" />
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => router.push("/(member)/profile" as any)}
-              style={[
-                styles.iconBtn,
-                { marginLeft: 12, padding: 0, overflow: "hidden" },
-              ]}
-              accessibilityRole="button"
-              accessibilityLabel="Trang cá nhân"
-            >
-              {profile?.avatarUrl ? (
-                <Image
-                  source={{ uri: profile.avatarUrl }}
-                  style={{ width: "100%", height: "100%" }}
-                  accessibilityLabel="Ảnh đại diện"
+            <View style={styles.headerActions}>
+              <TouchableOpacity
+                onPress={() => router.push("/notifications" as any)}
+                style={styles.notifBtn}
+              >
+                <Ionicons
+                  name="notifications-outline"
+                  size={20}
+                  color="#3A75F2"
                 />
-              ) : (
-                <Ionicons name="person-outline" size={20} color="#FFFFFF" />
-              )}
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={logout}
-              style={[
-                styles.iconBtn,
-                { marginLeft: 12, backgroundColor: "rgba(255, 107, 107, 0.1)" },
-              ]}
-              accessibilityRole="button"
-              accessibilityLabel="Đăng xuất"
-            >
-              <Ionicons name="log-out-outline" size={20} color="#FF6B6B" />
-            </TouchableOpacity>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setIsProfileMenuVisible(true)}
+                style={styles.avatarWrapper}
+              >
+                {profile?.avatarUrl ? (
+                  <Image
+                    source={{ uri: profile.avatarUrl }}
+                    style={styles.largeAvatar}
+                  />
+                ) : (
+                  <View style={[styles.largeAvatar, styles.avatarFallback]}>
+                    <Text style={styles.avatarTextLarge}>
+                      {profile?.fullName?.charAt(0) || "D"}
+                    </Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
         </Animated.View>
+
+        {/* Profile Dropdown Menu */}
+        <Modal
+          visible={isProfileMenuVisible}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setIsProfileMenuVisible(false)}
+        >
+          <TouchableOpacity
+            style={styles.menuOverlay}
+            activeOpacity={1}
+            onPress={() => setIsProfileMenuVisible(false)}
+          >
+            <Animated.View
+              entering={FadeInUp.duration(300)}
+              style={styles.menuContent}
+            >
+              <View style={styles.menuHeader}>
+                <Text style={styles.menuUserTitle}>
+                  {profile?.fullName || t("roles.member")}
+                </Text>
+                <Text style={styles.menuUserSub}>
+                  {session?.user?.email || "member@bibliotech.ai"}
+                </Text>
+              </View>
+
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={() => {
+                  setIsProfileMenuVisible(false);
+                  router.push("/profile" as any);
+                }}
+              >
+                <Ionicons name="person-outline" size={18} color="#8A8F9E" />
+                <Text style={styles.menuItemText}>{t("common.profile")}</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={() => {
+                  setIsProfileMenuVisible(false);
+                  router.push("/settings" as any);
+                }}
+              >
+                <Ionicons name="settings-outline" size={18} color="#8A8F9E" />
+                <Text style={styles.menuItemText}>{t("common.settings")}</Text>
+              </TouchableOpacity>
+
+              <LanguageMenuToggle />
+
+              <View style={styles.menuDivider} />
+
+              <TouchableOpacity
+                style={[styles.menuItem, styles.signOutItem]}
+                onPress={() => {
+                  setIsProfileMenuVisible(false);
+                  logout();
+                }}
+              >
+                <Ionicons name="log-out-outline" size={18} color="#FF6B6B" />
+                <Text style={[styles.menuItemText, { color: "#FF6B6B" }]}>
+                  {t("common.logout")}
+                </Text>
+              </TouchableOpacity>
+            </Animated.View>
+          </TouchableOpacity>
+        </Modal>
+
+        {/* Prominent Search Bar */}
+        <Animated.View
+          entering={FadeInDown.delay(300)}
+          style={styles.searchContainer}
+        >
+          <TouchableOpacity
+            onPress={() => router.push("/(member)/search" as any)}
+            style={styles.searchBar}
+            activeOpacity={0.9}
+          >
+            <Ionicons name="search-outline" size={20} color="#8A8F9E" />
+            <Text style={styles.searchPlaceholder}>
+              {t("a11y.search_hint")}
+            </Text>
+            <View style={styles.filterBtn}>
+              <Ionicons name="options-outline" size={18} color="#4F8EF7" />
+            </View>
+          </TouchableOpacity>
+        </Animated.View>
+
+        {/* Intuitive Quick Actions Grid */}
+        <View style={styles.friendlyActionsGrid}>
+          <TouchableOpacity
+            onPress={() => setIsOfflineCardVisible(true)}
+            style={styles.friendlyActionItem}
+          >
+            <LinearGradient
+              colors={["#3A75F2", "#2D5BD0"]}
+              style={styles.friendlyActionIcon}
+            >
+              <Ionicons name="qr-code" size={24} color="white" />
+            </LinearGradient>
+            <Text style={styles.friendlyActionLabel}>
+              {t("member.id_card")}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => router.push("/(member)/search" as any)}
+            style={styles.friendlyActionItem}
+          >
+            <LinearGradient
+              colors={["#10B981", "#0D9488"]}
+              style={styles.friendlyActionIcon}
+            >
+              <Ionicons name="book" size={24} color="white" />
+            </LinearGradient>
+            <Text style={styles.friendlyActionLabel}>
+              {t("member.borrow_books")}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => router.push("/(member)/history" as any)}
+            style={styles.friendlyActionItem}
+          >
+            <LinearGradient
+              colors={["#F59E0B", "#D97706"]}
+              style={styles.friendlyActionIcon}
+            >
+              <Ionicons name="time" size={24} color="white" />
+            </LinearGradient>
+            <Text style={styles.friendlyActionLabel}>
+              {t("member.history")}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => router.push("/(member)/community" as any)}
+            style={styles.friendlyActionItem}
+          >
+            <LinearGradient
+              colors={["#8B5CF6", "#7C3AED"]}
+              style={styles.friendlyActionIcon}
+            >
+              <Ionicons name="people" size={24} color="white" />
+            </LinearGradient>
+            <Text style={styles.friendlyActionLabel}>
+              {t("member.community")}
+            </Text>
+          </TouchableOpacity>
+        </View>
 
         {/* BROADCAST BANNER */}
         {latestMessage && (
@@ -673,11 +739,28 @@ export default function MemberHome() {
 
         {/* Analytics Section */}
         <AnimatedWrapper index={3} type="fade">
-          <View style={styles.analyticsCard}>
-            <Text style={styles.analyticsTitle}>Thống kê cá nhân</Text>
+          <View
+            style={[
+              styles.analyticsCard,
+              { borderColor: "rgba(16, 185, 129, 0.2)", borderWidth: 1 },
+            ]}
+          >
+            <View style={styles.sectionHeader}>
+              <View style={{ flexDirection: "row", alignItems: "center" }}>
+                <Ionicons
+                  name="analytics"
+                  size={20}
+                  color="#10B981"
+                  style={{ marginRight: 8 }}
+                />
+                <Text style={[styles.analyticsTitle, { color: "#10B981" }]}>
+                  AI Insights • Phân tích
+                </Text>
+              </View>
+            </View>
             <View style={styles.chartRow}>
               <View style={{ flex: 1 }}>
-                <Text style={styles.chartLabel}>Xu hướng mượn sách</Text>
+                <Text style={styles.chartLabel}>Tăng trưởng tri thức</Text>
                 {myBorrows?.length > 0 ? (
                   <LineChart
                     data={{
@@ -786,9 +869,7 @@ export default function MemberHome() {
                     </View>
                     <View style={styles.feedContent}>
                       <Text style={styles.feedText} numberOfLines={2}>
-                        <Text style={styles.userName}>
-                          {activity.userName}
-                        </Text>
+                        <Text style={styles.userName}>{activity.userName}</Text>
                         <Text style={styles.actionText}>
                           {activity.type === "BORROW"
                             ? " vừa mượn "
@@ -851,7 +932,11 @@ export default function MemberHome() {
                   style={styles.recCard}
                 >
                   <Image
-                    source={{ uri: book.cover_url || 'https://via.placeholder.com/150x200?text=No+Cover' }}
+                    source={{
+                      uri:
+                        book.cover_url ||
+                        "https://via.placeholder.com/150x200?text=No+Cover",
+                    }}
                     style={styles.recImage}
                   />
                   <View style={styles.recInfo}>
@@ -1026,7 +1111,7 @@ export default function MemberHome() {
                   </TouchableOpacity>
                 </View>
                 <ScrollView style={styles.aiModalBody}>
-                   <Text style={styles.aiResponseText}>{aiResponse?.text}</Text>
+                  <Text style={styles.aiResponseText}>{aiResponse?.text}</Text>
                   {(aiResponse?.books?.length ?? 0) > 0 && (
                     <View style={styles.aiBooksSection}>
                       <Text style={styles.aiSubTitle}>Sách gợi ý cho bạn:</Text>
@@ -1082,8 +1167,80 @@ export default function MemberHome() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#0F121D" },
-  scrollContent: { paddingBottom: 100 },
+  container: {
+    flex: 1,
+    backgroundColor: "#0B0F1A",
+  },
+  friendlyHeader: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 10,
+  },
+  greetingRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  notifBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: "rgba(58, 117, 242, 0.1)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+  },
+  friendlyGreeting: {
+    color: "#8A8F9E",
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  friendlyName: {
+    color: "#FFFFFF",
+    fontSize: 24,
+    fontWeight: "bold",
+    marginTop: 4,
+  },
+  avatarWrapper: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    borderWidth: 2,
+    borderColor: "#3A75F2",
+    overflow: "hidden",
+    backgroundColor: "#1E2540",
+  },
+  largeAvatar: {
+    width: "100%",
+    height: "100%",
+  },
+  avatarFallback: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarTextLarge: {
+    color: "#FFFFFF",
+    fontSize: 20,
+    fontWeight: "bold",
+  },
+  searchContainer: {
+    paddingHorizontal: 20,
+    marginTop: 15,
+  },
+  searchBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#171B2B",
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    height: 54,
+    borderWidth: 1,
+    borderColor: "#1F263B",
+  },
   offlineBanner: {
     backgroundColor: "#EF4444",
     flexDirection: "row",
@@ -1091,6 +1248,52 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingVertical: 6,
     zIndex: 1000,
+  },
+  searchPlaceholder: {
+    color: "#5A5F7A",
+    fontSize: 14,
+    marginLeft: 12,
+    flex: 1,
+  },
+  filterBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: "rgba(79, 142, 247, 0.1)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  friendlyActionsGrid: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    marginTop: 25,
+    marginBottom: 10,
+  },
+  friendlyActionItem: {
+    alignItems: "center",
+    width: (width - 60) / 4,
+  },
+  friendlyActionIcon: {
+    width: 50,
+    height: 50,
+    borderRadius: 15,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 8,
+    elevation: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+  },
+  friendlyActionLabel: {
+    color: "#8A8F9E",
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  scrollContent: {
+    paddingBottom: 40,
   },
   offlineBannerText: {
     color: "white",
@@ -1505,5 +1708,62 @@ const styles = StyleSheet.create({
     color: "#8A8F9E",
     fontSize: 11,
     marginTop: 4,
+  },
+  menuOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    justifyContent: "flex-start",
+    alignItems: "flex-end",
+    paddingTop: 80,
+    paddingRight: 20,
+  },
+  menuContent: {
+    width: 200,
+    backgroundColor: "#171B2B",
+    borderRadius: 12,
+    padding: 6,
+    borderWidth: 1,
+    borderColor: "#1F263B",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  menuHeader: {
+    padding: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.05)",
+    marginBottom: 4,
+  },
+  menuUserTitle: {
+    color: "#FFFFFF",
+    fontSize: 13,
+    fontWeight: "bold",
+  },
+  menuUserSub: {
+    color: "#8A8F9E",
+    fontSize: 10,
+    marginTop: 1,
+  },
+  menuItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 10,
+    borderRadius: 8,
+    gap: 10,
+  },
+  menuItemText: {
+    color: "#E1E4ED",
+    fontSize: 13,
+    fontWeight: "500",
+  },
+  menuDivider: {
+    height: 1,
+    backgroundColor: "rgba(255,255,255,0.05)",
+    marginVertical: 4,
+  },
+  signOutItem: {
+    marginTop: 2,
   },
 });

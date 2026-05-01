@@ -9,6 +9,7 @@ import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, Eas
 import Slider from '@react-native-community/slider';
 
 import { Audio } from 'expo-av';
+import { booksService } from '../../../src/features/books/books.service';
 
 const { width } = Dimensions.get('window');
 
@@ -33,7 +34,8 @@ export default function AudioPlayerScreen() {
   const rotation = useSharedValue(0);
 
   async function loadSound() {
-    if (!book?.audio_url) return;
+    const audioUrl = book ? booksService.getPlaybackUrl(book) : null;
+    if (!audioUrl) return;
     
     try {
       // Get saved position
@@ -41,7 +43,7 @@ export default function AudioPlayerScreen() {
       const initialPos = savedPos ? parseInt(savedPos) : 0;
 
       const { sound: newSound } = await Audio.Sound.createAsync(
-        { uri: book.audio_url },
+        { uri: audioUrl },
         { 
           shouldPlay: false, 
           rate: playbackSpeed, 
@@ -78,7 +80,7 @@ export default function AudioPlayerScreen() {
         sound.unloadAsync();
       }
     };
-  }, [book?.audio_url]);
+  }, [book?.id]);
 
   const togglePlayback = async () => {
     if (!sound) return;
@@ -174,14 +176,17 @@ export default function AudioPlayerScreen() {
 
       <View style={styles.diskSection}>
         <Animated.View style={[styles.diskWrapper, animatedDiskStyle]}>
-          <Image source={book.cover_url ? { uri: book.cover_url } : undefined} style={styles.diskImage} />
+          <Image 
+            source={(book.canonical_cover_url || book.cover_url) ? { uri: (book.canonical_cover_url || book.cover_url)! } : undefined} 
+            style={styles.diskImage} 
+          />
           <View style={styles.diskCenter} />
         </Animated.View>
       </View>
 
       <View style={styles.infoSection}>
         <Text style={styles.title} numberOfLines={2}>{book.title}</Text>
-        <Text style={styles.author}>{book.author}</Text>
+        <Text style={styles.author}>{book.canonical_author || book.author || 'Đang cập nhật'}</Text>
         
         <View style={styles.interactionRow}>
           <TouchableOpacity onPress={toggleLike} style={styles.interactionBtn}>

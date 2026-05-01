@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, ScrollView, TouchableOpacity, Alert, Modal, TextInput, Image, Text, StyleSheet } from 'react-native';
+import { View, ScrollView, TouchableOpacity, Alert, Modal, TextInput, Image, Text, StyleSheet, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
@@ -150,33 +150,51 @@ export default function LibrarianBooks() {
   const handleMarc21Import = async () => {
     // Simple MARC21 Regex Parser
     // Tags: 245$a (Title), 100$a (Author), 082$a (DDC), 090$b (Cutter)
-    Alert.prompt(
-      "Dán nội dung MARC21",
-      "Dán văn bản MARC21 (định dạng mnemonic) vào đây để trích xuất metadata.",
-      [
-        { text: "Hủy", style: "cancel" },
-        { 
-          text: "Trích xuất", 
-          onPress: (text: string | undefined) => {
-            if (!text) return;
-            const titleMatch = text.match(/245.*\$a\s*([^$|\n|/]+)/);
-            const authorMatch = text.match(/100.*\$a\s*([^$|\n]+)/);
-            const ddcMatch = text.match(/082.*\$a\s*(\d+\.?\d*)/);
-            const cutterMatch = text.match(/090.*\$b\s*([A-Z]\d+)/);
+    const runExtract = (text: string | undefined) => {
+      if (!text) return;
+      const titleMatch = text.match(/245.*\$a\s*([^$|\n|/]+)/);
+      const authorMatch = text.match(/100.*\$a\s*([^$|\n]+)/);
+      const ddcMatch = text.match(/082.*\$a\s*(\d+\.?\d*)/);
+      const cutterMatch = text.match(/090.*\$b\s*([A-Z]\d+)/);
 
-            if (isMounted) {
-              setFormData({
-                ...formData,
-                title: titleMatch ? titleMatch[1].trim() : formData.title,
-                author: authorMatch ? authorMatch[1].trim() : formData.author,
-                appendix: `DDC: ${ddcMatch ? ddcMatch[1] : 'N/A'}\nCutter: ${cutterMatch ? cutterMatch[1] : 'N/A'}`
-              });
-              Alert.alert("Thành công", "Đã trích xuất metadata từ MARC21");
-            }
-          }
+      if (isMounted) {
+        setFormData({
+          ...formData,
+          title: titleMatch ? titleMatch[1].trim() : formData.title,
+          author: authorMatch ? authorMatch[1].trim() : formData.author,
+          appendix: `DDC: ${ddcMatch ? ddcMatch[1] : 'N/A'}\nCutter: ${cutterMatch ? cutterMatch[1] : 'N/A'}`
+        });
+        if (Platform.OS === 'web') {
+          window.alert("Đã trích xuất metadata từ MARC21");
+        } else {
+          Alert.alert("Thành công", "Đã trích xuất metadata từ MARC21");
         }
-      ]
-    );
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      const text = window.prompt("Dán văn bản MARC21 (định dạng mnemonic) vào đây để trích xuất metadata.");
+      if (text !== null && text.trim() !== '') {
+        runExtract(text);
+      }
+    } else if (Alert.prompt) {
+      Alert.prompt(
+        "Dán nội dung MARC21",
+        "Dán văn bản MARC21 (định dạng mnemonic) vào đây để trích xuất metadata.",
+        [
+          { text: "Hủy", style: "cancel" },
+          { 
+            text: "Trích xuất", 
+            onPress: (text: string | undefined) => runExtract(text)
+          }
+        ]
+      );
+    } else {
+      const text = window.prompt ? window.prompt("Dán văn bản MARC21 (định dạng mnemonic) vào đây để trích xuất metadata.") : null;
+      if (text !== null && text.trim() !== '') {
+        runExtract(text);
+      }
+    }
   };
 
   const adjustCopies = (amount: number) => {

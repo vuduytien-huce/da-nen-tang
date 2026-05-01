@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ActivityIndicator, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useLibrary } from '../../src/hooks/useLibrary';
@@ -42,20 +42,46 @@ export default function LibrarianBorrows() {
   };
 
   const handleReject = (id: string) => {
-    Alert.prompt(t('librarian.reject_title'), t('librarian.reject_reason_label'), [
-      { text: t('common.cancel'), style: 'cancel' },
-      {
-        text: t('common.confirm'),
-        onPress: async (reason?: string) => {
-          try {
-            await rejectMutation.mutateAsync({ recordId: id, reason: reason || t('librarian.reject_reason_default') });
-            if (isMounted) Alert.alert(t('common.success'), t('librarian.reject_success'));
-          } catch (err: any) {
-            if (isMounted) Alert.alert(t('common.error'), err.message);
+    const runReject = async (reason?: string) => {
+      try {
+        await rejectMutation.mutateAsync({ recordId: id, reason: reason || t('librarian.reject_reason_default') });
+        if (isMounted) {
+          if (Platform.OS === 'web') {
+            window.alert(t('librarian.reject_success'));
+          } else {
+            Alert.alert(t('common.success'), t('librarian.reject_success'));
+          }
+        }
+      } catch (err: any) {
+        if (isMounted) {
+          if (Platform.OS === 'web') {
+            window.alert(err.message);
+          } else {
+            Alert.alert(t('common.error'), err.message);
           }
         }
       }
-    ]);
+    };
+
+    if (Platform.OS === 'web') {
+      const reason = window.prompt(t('librarian.reject_reason_label') || 'Lý do từ chối:');
+      if (reason !== null) {
+        runReject(reason);
+      }
+    } else if (Alert.prompt) {
+      Alert.prompt(t('librarian.reject_title'), t('librarian.reject_reason_label'), [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('common.confirm'),
+          onPress: (reason?: string) => runReject(reason),
+        }
+      ]);
+    } else {
+      const reason = window.prompt ? window.prompt(t('librarian.reject_reason_label') || 'Lý do từ chối:') : null;
+      if (reason !== null) {
+        runReject(reason);
+      }
+    }
   };
 
   const handleReturn = (isbn: string) => {

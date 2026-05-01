@@ -11,10 +11,10 @@ const screenWidth = Dimensions.get('window').width;
 
 const chartConfig = {
   backgroundColor: '#0B0F1A',
-  backgroundGradientFrom: '#171B2B',
+  backgroundGradientFrom: '#0F172A',
   backgroundGradientTo: '#0B0F1A',
   decimalPlaces: 0,
-  color: (opacity = 1) => `rgba(58, 117, 242, ${opacity})`,
+  color: (opacity = 1) => `rgba(16, 185, 129, ${opacity})`,
   labelColor: (opacity = 1) => `rgba(148, 163, 184, ${opacity})`,
   style: {
     borderRadius: 16,
@@ -22,7 +22,7 @@ const chartConfig = {
   propsForDots: {
     r: '6',
     strokeWidth: '2',
-    stroke: '#3A75F2',
+    stroke: '#10B981',
   },
 };
 
@@ -45,7 +45,7 @@ export default function AnalyticsScreen() {
   const pieData = genres?.map((g: any, i: number) => ({
     name: g.category,
     population: g.count,
-    color: ['#3A75F2', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'][i % 6],
+    color: ['#10B981', '#34D399', '#059669', '#6EE7B7', '#065F46', '#A7F3D0'][i % 6],
     legendFontColor: '#94A3B8',
     legendFontSize: 12,
   })) || [];
@@ -54,8 +54,8 @@ export default function AnalyticsScreen() {
     <SafeAreaView style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <Text style={styles.title}>Phân tích đọc sách</Text>
-          <Text style={styles.subtitle}>Hiểu thói quen đọc sách của bạn</Text>
+          <Text style={[styles.title, { color: '#10B981' }]}>AI Insights • Xu hướng</Text>
+          <Text style={styles.subtitle}>Phân tích dữ liệu đọc sách thông minh</Text>
         </View>
 
         {/* Monthly Activity Chart */}

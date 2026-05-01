@@ -31,6 +31,7 @@ import { supabase } from '../../src/api/supabase';
 import { decode } from 'base64-arraybuffer';
 import { OfflineCard } from '../../src/features/members/components/OfflineCard';
 import { DigitalMembershipPass } from '../../src/features/members/components/DigitalMembershipPass';
+import { LanguageMenuToggle } from '../../src/components/LanguageSwitcher';
 
 const { width } = Dimensions.get('window');
 
@@ -240,6 +241,16 @@ export default function ProfileScreen() {
         
         {/* Profile Header */}
         <LinearGradient colors={['#1E2540', '#0F121D']} style={styles.profileHeader} accessibilityRole="header">
+          <View style={styles.headerTop}>
+            <TouchableOpacity 
+              style={styles.backBtn}
+              onPress={() => router.back()}
+              accessibilityRole="button"
+              accessibilityLabel="Trở về"
+            >
+              <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
           <View style={styles.avatarContainer}>
             <Image 
               source={{ uri: profile?.avatarUrl || `https://ui-avatars.com/api/?name=${profile?.fullName || 'User'}&background=3A75F2&color=fff` }} 
@@ -532,7 +543,7 @@ export default function ProfileScreen() {
         <View style={styles.actionSection}>
           <TouchableOpacity 
             style={styles.actionItem} 
-            onPress={() => router.push('/(member)/settings')}
+            onPress={() => router.push('/settings' as any)}
           >
             <View style={styles.actionIcon}>
               <Ionicons name="settings-outline" size={20} color="#3A75F2" />
@@ -540,6 +551,8 @@ export default function ProfileScreen() {
             <Text style={styles.actionLabel}>Cài đặt hệ thống</Text>
             <Ionicons name="chevron-forward" size={18} color="#5A5F7A" />
           </TouchableOpacity>
+
+          <LanguageMenuToggle />
 
           <TouchableOpacity 
             style={styles.actionItem} 
@@ -637,6 +650,24 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0F121D' },
   scrollContent: { paddingBottom: 40 },
+  headerTop: {
+    width: '100%',
+    flexDirection: 'row',
+    justifyContent: 'flex-start',
+    paddingHorizontal: 20,
+    marginBottom: 10,
+    marginTop: -10,
+  },
+  backBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
   profileHeader: {
     paddingTop: 40,
     paddingBottom: 30,

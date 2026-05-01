@@ -99,12 +99,16 @@ export const BiblioAI: React.FC = () => {
           activeOpacity={0.8}
         >
           <LinearGradient
-            colors={['#3A75F2', '#6E45E2']}
+            colors={['#6E45E2', '#8B5CF6']}
             style={styles.fabGradient}
           >
-            <Ionicons name="sparkles" size={24} color="#FFFFFF" />
+            <Ionicons name="chatbubble-ellipses" size={24} color="#FFFFFF" />
+            <View style={styles.onlineDot} />
           </LinearGradient>
         </TouchableOpacity>
+        <View style={styles.fabLabelContainer}>
+           <Text style={styles.fabLabel}>Hỏi Trợ lý</Text>
+        </View>
       </Animated.View>
 
       {/* Chat Modal */}
@@ -339,5 +343,32 @@ const styles = StyleSheet.create({
   sendBtnDisabled: {
     backgroundColor: '#1F263B',
     opacity: 0.5,
+  },
+  onlineDot: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#10B981',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+  fabLabelContainer: {
+    position: 'absolute',
+    right: 65,
+    top: 15,
+    backgroundColor: '#1F263B',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#3A75F2',
+  },
+  fabLabel: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: 'bold',
   },
 });

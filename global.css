@@ -48,3 +48,30 @@
   @apply -translate-y-1 scale-[1.02];
   box-shadow: 0 12px 24px rgba(0, 0, 0, 0.4);
 }
+
+/* Elegant and Compact Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0B0F1A;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #2a324d;
+  border-radius: 3px;
+  border: none;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #3b82f6;
+}
+
+/* For Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #2a324d #0B0F1A;
+}
+

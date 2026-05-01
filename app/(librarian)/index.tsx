@@ -1,10 +1,12 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Dimensions, StatusBar, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Dimensions, StatusBar, ActivityIndicator, Alert, Modal, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '@/src/store/useAuthStore';
 import { useLibrary } from '@/src/hooks/useLibrary';
 import { useRouter } from 'expo-router';
+import Animated, { FadeInUp, FadeInDown } from 'react-native-reanimated';
+import { LanguageMenuToggle } from '@/src/components/LanguageSwitcher';
 import { supabase } from '@/src/api/supabase';
 import { BranchMap } from '@/src/features/admin/components/BranchMap';
 import { logisticsService, RedistributionSuggestion } from '@/src/services/logisticsService';
@@ -12,6 +14,7 @@ import { logisticsService, RedistributionSuggestion } from '@/src/services/logis
 const { width } = Dimensions.get('window');
 
 export default function LibrarianDashboard() {
+  const [isProfileMenuVisible, setIsProfileMenuVisible] = React.useState(false);
   const { t } = useTranslation();
   const user = useAuthStore((state) => state.profile);
   const logout = useAuthStore((state) => state.logout);
@@ -172,24 +175,91 @@ export default function LibrarianDashboard() {
       <StatusBar barStyle="light-content" backgroundColor="#0F121D" />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
         
-        {/* Minimal Header with Logout */}
+        {/* Minimal Header with Profile Dropdown */}
         <View style={styles.header}>
           <View>
-            <Text style={styles.welcome}>{t('librarian.welcome')}, {user?.fullName?.split(' ')[0] || t('common.librarian')}</Text>
-            <Text style={styles.name}>BiblioTech Premium</Text>
+            <Text style={styles.welcome}>{t('librarian.welcome')},</Text>
+            <Text style={styles.name}>{user?.fullName || t('common.librarian')}</Text>
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <TouchableOpacity 
-              onPress={() => router.push('/(member)/notifications' as any)} 
-              style={[styles.logoutBtn, { marginRight: 12, backgroundColor: 'rgba(58, 117, 242, 0.1)' }]}
+              onPress={() => router.push('/notifications' as any)} 
+              style={styles.notifBtn}
             >
               <Ionicons name="notifications-outline" size={20} color="#3A75F2" />
             </TouchableOpacity>
-            <TouchableOpacity onPress={logout} style={styles.logoutBtn}>
-              <Ionicons name="log-out-outline" size={20} color="#FF6B6B" />
+            <TouchableOpacity 
+              onPress={() => setIsProfileMenuVisible(true)}
+              style={styles.avatarBtn}
+            >
+              {user?.avatarUrl ? (
+                <Image source={{ uri: user.avatarUrl }} style={styles.avatarImg} />
+              ) : (
+                <View style={styles.avatarPlaceholder}>
+                  <Text style={styles.avatarText}>{user?.fullName?.charAt(0) || 'L'}</Text>
+                </View>
+              )}
             </TouchableOpacity>
           </View>
         </View>
+
+        {/* Profile Dropdown Menu */}
+        <Modal
+          visible={isProfileMenuVisible}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setIsProfileMenuVisible(false)}
+        >
+          <TouchableOpacity 
+            style={styles.menuOverlay} 
+            activeOpacity={1} 
+            onPress={() => setIsProfileMenuVisible(false)}
+          >
+            <Animated.View entering={FadeInUp.duration(300)} style={styles.menuContent}>
+              <View style={styles.menuHeader}>
+                <Text style={styles.menuUserTitle}>{user?.fullName || t('common.librarian')}</Text>
+                <Text style={styles.menuUserSub}>{t('common.staff_label')}</Text>
+              </View>
+              
+              <TouchableOpacity 
+                style={styles.menuItem}
+                onPress={() => {
+                  setIsProfileMenuVisible(false);
+                  router.push("/profile" as any);
+                }}
+              >
+                <Ionicons name="person-outline" size={18} color="#8A8F9E" />
+                <Text style={styles.menuItemText}>{t('common.profile')}</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={styles.menuItem}
+                onPress={() => {
+                  setIsProfileMenuVisible(false);
+                  router.push("/settings" as any);
+                }}
+              >
+                <Ionicons name="settings-outline" size={18} color="#8A8F9E" />
+                <Text style={styles.menuItemText}>{t('common.settings')}</Text>
+              </TouchableOpacity>
+
+              <LanguageMenuToggle />
+
+              <View style={styles.menuDivider} />
+
+              <TouchableOpacity 
+                style={[styles.menuItem, styles.signOutItem]}
+                onPress={() => {
+                  setIsProfileMenuVisible(false);
+                  logout();
+                }}
+              >
+                <Ionicons name="log-out-outline" size={18} color="#FF6B6B" />
+                <Text style={[styles.menuItemText, { color: '#FF6B6B' }]}>{t('common.logout')}</Text>
+              </TouchableOpacity>
+            </Animated.View>
+          </TouchableOpacity>
+        </Modal>
 
         {/* DUPLICATE WARNING BANNER */}
         {duplicateCount > 0 && (
@@ -349,6 +419,15 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#FFFFFF',
   },
+  notifBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: "rgba(58, 117, 242, 0.1)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+  },
   logoutBtn: {
     width: 36,
     height: 36,
@@ -356,6 +435,87 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 107, 107, 0.1)',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  avatarBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: '#3A75F2',
+    overflow: 'hidden',
+  },
+  avatarImg: {
+    width: '100%',
+    height: '100%',
+  },
+  avatarPlaceholder: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#1F263B',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarText: {
+    color: '#3A75F2',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  menuOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'flex-start',
+    alignItems: 'flex-end',
+    paddingTop: 80,
+    paddingRight: 20,
+  },
+  menuContent: {
+    width: 200,
+    backgroundColor: '#171B2B',
+    borderRadius: 12,
+    padding: 6,
+    borderWidth: 1,
+    borderColor: '#1F263B',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  menuHeader: {
+    padding: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.05)',
+    marginBottom: 4,
+  },
+  menuUserTitle: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: 'bold',
+  },
+  menuUserSub: {
+    color: '#8A8F9E',
+    fontSize: 10,
+    marginTop: 1,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 10,
+    borderRadius: 8,
+    gap: 10,
+  },
+  menuItemText: {
+    color: '#E1E4ED',
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  menuDivider: {
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    marginVertical: 4,
+  },
+  signOutItem: {
+    marginTop: 2,
   },
   intelligenceRow: {
     paddingHorizontal: 20,
