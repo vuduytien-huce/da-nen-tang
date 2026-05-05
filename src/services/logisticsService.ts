@@ -5,7 +5,7 @@ import { adminService } from '../features/admin/admin.service';
  * Maintained for backward compatibility with Librarian and Admin features
  */
 export const logisticsService = {
-  getAIRedistributionSuggestions: adminService.getAIRedistributionSuggestions.bind(adminService),
+  getAIRedistributionSuggestions: (lang?: string) => adminService.getAIRedistributionSuggestions(lang),
   executeTransfer: adminService.executeTransfer.bind(adminService),
   getBranchStock: adminService.getBranchStock.bind(adminService),
 };

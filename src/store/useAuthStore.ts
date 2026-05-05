@@ -19,6 +19,7 @@ export interface Profile {
   is_locked: boolean;
   lock_reason: string | null;
   locale: string | null;
+  email?: string | null;
 }
 
 export interface AuthState {
@@ -142,7 +143,8 @@ export const useAuthStore = create<AuthStore>()(
                   fullName: newUser.full_name,
                   avatarUrl: newUser.avatar_url,
                   favoriteGenres: newUser.favorite_genres || [],
-                  role: newUser.role as UserRole
+                  role: newUser.role as UserRole,
+                  email: currentSession?.user?.email
                 },
               });
               return;
@@ -162,7 +164,8 @@ export const useAuthStore = create<AuthStore>()(
                   badges: [],
                   is_locked: false,
                   lock_reason: null,
-                  locale: 'vi'
+                  locale: 'vi',
+                  email: currentSession?.user?.email
                 },
               });
               return;
@@ -183,13 +186,15 @@ export const useAuthStore = create<AuthStore>()(
             badges: [],
             is_locked: false,
             lock_reason: null,
-            locale: 'vi'
+            locale: 'vi',
+            email: currentSession?.user?.email
           } });
         } else if (data) {
           const profile = { 
               ...data,
               favoriteGenres: data.favoriteGenres || [],
-              role: data.role as UserRole
+              role: data.role as UserRole,
+              email: currentSession?.user?.email
             };
           set({ profile });
           membersService.saveProfile(profile);

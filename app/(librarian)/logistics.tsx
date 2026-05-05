@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next';
 import { useLibrary } from '../../src/hooks/useLibrary';
 import { BranchMap } from '../../src/features/admin/components/BranchMap';
 import { AnimatedWrapper } from '../../src/components/AnimatedWrapper';
+import { router } from 'expo-router';
 
 interface Transfer {
   id: string;
@@ -50,6 +51,18 @@ export default function LogisticsPage() {
     }
   });
 
+  const getBranchDisplayName = (name: string) => {
+    if (!name) return '';
+    const lower = name.toLowerCase();
+    if (lower.includes('south') || lower.includes('miền nam') || lower.includes('hồ chí minh') || lower.includes('hcm')) {
+      return t('admin.branch_south', 'South Branch - TP.HCM');
+    }
+    if (lower.includes('main') || lower.includes('chính') || lower.includes('hà nội') || lower.includes('hn')) {
+      return t('admin.branch_main', 'Main Branch - Hà Nội');
+    }
+    return name;
+  };
+
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'PENDING': return 'time-outline';
@@ -80,14 +93,14 @@ export default function LogisticsPage() {
           </View>
           <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) + '20', borderColor: getStatusColor(item.status) }]}>
             <Ionicons name={getStatusIcon(item.status)} size={12} color={getStatusColor(item.status)} />
-            <Text style={[styles.statusText, { color: getStatusColor(item.status) }]}>{item.status}</Text>
+            <Text style={[styles.statusText, { color: getStatusColor(item.status) }]}>{t(`logistics.status_${item.status.toLowerCase()}`)}</Text>
           </View>
         </View>
 
         <View style={styles.logisticsPath}>
           <View style={styles.branchPoint}>
             <Ionicons name="business" size={16} color="#4F8EF7" />
-            <Text style={styles.branchName} numberOfLines={1}>{item.from_branch?.name}</Text>
+            <Text style={styles.branchName} numberOfLines={1}>{getBranchDisplayName(item.from_branch?.name)}</Text>
           </View>
           <View style={styles.pathLine}>
             <View style={styles.line} />
@@ -96,7 +109,7 @@ export default function LogisticsPage() {
           </View>
           <View style={styles.branchPoint}>
             <Ionicons name="location" size={16} color="#10B981" />
-            <Text style={styles.branchName} numberOfLines={1}>{item.to_branch?.name}</Text>
+            <Text style={styles.branchName} numberOfLines={1}>{getBranchDisplayName(item.to_branch?.name)}</Text>
           </View>
         </View>
 
@@ -136,9 +149,9 @@ export default function LogisticsPage() {
       </View>
       
       <View style={styles.suggestionPath}>
-        <Text style={styles.pathText}>{item.from_branch_name}</Text>
+        <Text style={styles.pathText}>{getBranchDisplayName(item.from_branch_name)}</Text>
         <Ionicons name="arrow-forward" size={12} color="#5A5F7A" />
-        <Text style={styles.pathText}>{item.to_branch_name}</Text>
+        <Text style={styles.pathText}>{getBranchDisplayName(item.to_branch_name)}</Text>
       </View>
       
       <Text style={styles.reasonText}>{item.reason}</Text>
@@ -161,7 +174,12 @@ export default function LogisticsPage() {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" />
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>{t('logistics.title')}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+            <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>{t('logistics.title')}</Text>
+        </View>
         <TouchableOpacity onPress={() => refetch()} style={styles.refreshBtn}>
           <Ionicons name="refresh" size={20} color="#FFFFFF" />
         </TouchableOpacity>
@@ -219,6 +237,7 @@ export default function LogisticsPage() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0B0F1A' },
+  backBtn: { padding: 4 },
   header: { 
     paddingHorizontal: 24, 
     paddingVertical: 20, 

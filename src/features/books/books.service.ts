@@ -21,9 +21,10 @@ export const booksService = {
 
   /** Normalize a Vietnamese title for fuzzy matching */
   normalizeTitle(title: string): string {
+    if (!title) return "";
     return title
       .toLowerCase()
-      .replace(/[^a-zA-ZÀ-ỹ0-9\s]/g, "")
+      .replace(/[^a-zA-ZÀ-ỹ0-9\s]/g, " ")
       .replace(/\s+/g, " ")
       .trim();
   },
@@ -59,6 +60,12 @@ export const booksService = {
 
     if (!googleItem && !openLibData) return null;
 
+    const translations = await ai.translateMetadata(
+      googleItem?.title || openLibData?.title || "Unknown Title",
+      googleItem?.description || openLibData?.notes || openLibData?.description || "",
+      googleItem?.authors?.join(", ") || openLibData?.authors?.map((a: any) => a.name).join(", ") || "Unknown Author"
+    );
+
     return {
       title: googleItem?.title || openLibData?.title || "Unknown Title",
       author:
@@ -90,6 +97,12 @@ export const booksService = {
       edition:
         googleItem?.contentVersion ||
         openLibData?.identifiers?.openlibrary?.[0],
+      title_en: translations.title_en,
+      title_vi: translations.title_vi,
+      description_en: translations.description_en,
+      description_vi: translations.description_vi,
+      author_en: translations.author_en,
+      author_vi: translations.author_vi,
       syncSource: {
         google: !!googleItem,
         openLib: !!openLibData,
@@ -104,14 +117,15 @@ export const booksService = {
   async fetchMetadataBySearch(
     title: string,
     author: string,
+    titleEn?: string,
   ): Promise<Partial<BookMetadata> | null> {
-    const cleanTitle = this.normalizeTitle(title);
+    const cleanTitle = titleEn || this.normalizeTitle(title);
     const cleanAuthor = author ? this.normalizeTitle(author) : "";
 
     let openLibCover = null;
     let googleMetadata: any = null;
 
-    // 1. Try Open Library Search for Cover
+    // 1. Try Open Library Search for Cover (Use English title if available)
     try {
       const olSearchRes = await axios.get(
         `https://openlibrary.org/search.json?title=${encodeURIComponent(cleanTitle)}&author=${encodeURIComponent(cleanAuthor)}&limit=1`,
@@ -123,14 +137,27 @@ export const booksService = {
       } else if (doc?.isbn?.[0]) {
         openLibCover = `https://covers.openlibrary.org/b/isbn/${doc.isbn[0]}-L.jpg`;
       }
+      
+      // If we used English title and found nothing, try Vietnamese title as fallback
+      if (!openLibCover && titleEn && titleEn !== title) {
+        const olSearchResVi = await axios.get(
+          `https://openlibrary.org/search.json?title=${encodeURIComponent(this.normalizeTitle(title))}&limit=1`,
+          { timeout: 5000 },
+        );
+        const docVi = olSearchResVi.data.docs?.[0];
+        if (docVi?.cover_i) {
+          openLibCover = `https://covers.openlibrary.org/b/id/${docVi.cover_i}-L.jpg`;
+        }
+      }
     } catch (e) {
       console.warn("OpenLib search failed:", e);
     }
 
     // 2. Try Google Books for backup and metadata
     try {
+      const query = titleEn ? `intitle:${titleEn} OR intitle:${title}` : `intitle:${title}`;
       const gRes = await axios.get(
-        `https://www.googleapis.com/books/v1/volumes?q=intitle:${encodeURIComponent(cleanTitle)}+inauthor:${encodeURIComponent(cleanAuthor)}&maxResults=1`,
+        `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(query)}+inauthor:${encodeURIComponent(cleanAuthor)}&maxResults=1`,
         { timeout: 5000 },
       );
       googleMetadata = gRes.data.items?.[0]?.volumeInfo;
@@ -154,8 +181,20 @@ export const booksService = {
 
   // --- Audiobooks Logic ---
 
+  async browseAudiobooks(limit = 20): Promise<EnrichedAudiobook[]> {
+    const { data, error } = await supabase
+      .from("audiobook_metadata")
+      .select("*, book:books(title, author, description, cover_url)")
+      .order("scraped_at", { ascending: false })
+      .limit(limit);
+
+    if (error || !data) return [];
+    return this.enrichWithBookMetadata(data, true); // true = fast mode
+  },
+
   async enrichWithBookMetadata(
     audiobooks: AudiobookRecord[],
+    fast = false,
   ): Promise<EnrichedAudiobook[]> {
     if (audiobooks.length === 0) return [];
 
@@ -166,23 +205,67 @@ export const booksService = {
       let canonical_description = ab.description;
       let canonical_cover_url = ab.cover_url;
 
-      const { data: matchedBooks } = await supabase
-        .from("books")
-        .select("title, author, description, cover_url, isbn")
-        .ilike("title", `%${this.normalizeTitle(ab.title)}%`)
-        .limit(1);
+      // Skip heavy lookups in fast mode if we already have the basics
+      if (fast && (ab.author && ab.cover_url && ab.cover_url.startsWith('http'))) {
+        enriched.push({
+          ...ab,
+          canonical_author: ab.author,
+          canonical_description: ab.description,
+          canonical_cover_url: ab.cover_url,
+          duration: this.formatDuration(ab.duration_seconds),
+        });
+        continue;
+      }
 
-      if (matchedBooks && matchedBooks.length > 0) {
-        const book = matchedBooks[0];
-        canonical_author = book.author || canonical_author;
-        canonical_description = canonical_description || book.description;
-        canonical_cover_url = canonical_cover_url || book.cover_url;
+      // 1. Try local match from JOIN first, then fallback to fuzzy search
+      if (ab.book) {
+        canonical_author = ab.book.author || canonical_author;
+        canonical_description = ab.book.description || canonical_description;
+        canonical_cover_url = ab.book.cover_url || canonical_cover_url;
       } else {
-        // If no local match, try external search
+        const { data: matchedBooks } = await supabase
+          .from("books")
+          .select("title, author, description, cover_url, isbn")
+          .ilike("title", `%${this.normalizeTitle(ab.title)}%`)
+          .limit(1);
+
+        if (matchedBooks && matchedBooks.length > 0) {
+          const book = matchedBooks[0];
+          canonical_author = book.author || canonical_author;
+          canonical_description = canonical_description || book.description;
+          canonical_cover_url = canonical_cover_url || book.cover_url;
+        }
+      }
+
+      // 2. AI Translation / Metadata Enrichment
+      if (!fast && (!ab.title_en || !ab.title_vi)) {
+        try {
+          const translations = await ai.translateMetadata(
+            ab.title, 
+            canonical_description || ab.description || "",
+            canonical_author || ab.author || "",
+            ab.narrator || ""
+          );
+          ab.title_en = translations.title_en;
+          ab.title_vi = translations.title_vi;
+          ab.description_en = translations.description_en;
+          ab.description_vi = translations.description_vi;
+          ab.author_en = translations.author_en;
+          ab.author_vi = translations.author_vi;
+          ab.narrator_en = translations.narrator_en;
+          ab.narrator_vi = translations.narrator_vi;
+        } catch (e) {
+          console.warn(`AI translation failed for ${ab.title}:`, e);
+        }
+      }
+
+      // 3. Try external search if still missing cover or explicitly requested
+      if (!fast && (!canonical_cover_url || !canonical_cover_url.startsWith('http'))) {
         try {
           const external = await this.fetchMetadataBySearch(
             ab.title,
             ab.author || "",
+            ab.title_en
           );
           if (external) {
             canonical_author = external.author || canonical_author || null;
@@ -196,14 +279,6 @@ export const booksService = {
         }
       }
 
-      if (
-        ab.source_platform === "thuviensachnoi" &&
-        !matchedBooks?.length &&
-        !canonical_author
-      ) {
-        canonical_author = null;
-      }
-
       enriched.push({
         ...ab,
         canonical_author,
@@ -214,44 +289,6 @@ export const booksService = {
     }
 
     return enriched;
-  },
-
-  async bulkEnrichAudiobooks() {
-    const { data: audiobooks, error: fetchError } = await supabase
-      .from("audiobook_metadata")
-      .select("*");
-
-    if (fetchError) throw fetchError;
-    if (!audiobooks || audiobooks.length === 0) return { count: 0 };
-
-    const enriched = await this.enrichWithBookMetadata(audiobooks);
-
-    let updatedCount = 0;
-    for (const item of enriched) {
-      if (
-        item.canonical_author ||
-        item.canonical_cover_url ||
-        item.canonical_description
-      ) {
-        const { error: updateError } = await supabase
-          .from("audiobook_metadata")
-          .update({
-            author: item.canonical_author || item.author,
-            cover_url: item.canonical_cover_url || item.cover_url,
-            description: item.canonical_description || item.description,
-            tags: {
-              ...(item.tags || {}),
-              is_enriched: true,
-              enriched_at: new Date().toISOString(),
-            },
-          } as any)
-          .eq("id", item.id);
-
-        if (!updateError) updatedCount++;
-      }
-    }
-
-    return { total: audiobooks.length, updated: updatedCount };
   },
 
   async searchAudiobooks(
@@ -269,7 +306,7 @@ export const booksService = {
   async getAudiobookByISBN(isbn: string): Promise<EnrichedAudiobook | null> {
     const { data, error } = await supabase
       .from("audiobook_metadata")
-      .select("*")
+      .select("*, book:books(title, author, description, cover_url)")
       .eq("isbn", isbn)
       .maybeSingle();
     if (error || !data) return null;
@@ -285,10 +322,71 @@ export const booksService = {
   },
 
   getPlaybackUrl(record: AudiobookRecord): string {
-    if (record.source_platform === "thuviensachnoi" && record.tags?.r2_path) {
-      return `https://biblio-tech-audio.tien2004.workers.dev/${record.tags.r2_path}`;
+    const R2_PUBLIC_URL = "https://pub-387e5eaea560486daafa6d3e602ac3d8.r2.dev";
+
+    // Check tags array for r2_path entry
+    if (record.tags) {
+      const tagsArr = Array.isArray(record.tags) ? record.tags : [];
+      const r2Tag = tagsArr.find((t: any) => typeof t === 'string' && t.startsWith('r2_path:'));
+      if (r2Tag) {
+        const r2Path = (r2Tag as string).replace('r2_path:', '');
+        return `${R2_PUBLIC_URL}/${encodeURIComponent(r2Path)}`;
+      }
+      // Also handle JSONB tags object with r2_path property
+      if (typeof record.tags === 'object' && !Array.isArray(record.tags) && (record.tags as any)?.r2_path) {
+        return `${R2_PUBLIC_URL}/${encodeURIComponent((record.tags as any).r2_path)}`;
+      }
     }
-    return record.preview_url || record.source_url;
+
+    // If source_url already points to R2 public URL or worker, use it directly (will replace worker URL with public if it matches)
+    let url = record.source_url;
+    if (url && url.includes('workers.dev')) {
+       url = url.replace('https://r2-audio-worker.vuduytien20042004.workers.dev', R2_PUBLIC_URL);
+       return url;
+    }
+    if (url && url.includes('r2.dev')) {
+      return url;
+    }
+
+    // Fallback: check if it's a playable audio URL
+    if (url && (url.includes('.mp3') || url.includes('.m4a') || url.includes('.wav') || url.includes('.mp4'))) {
+      return url;
+    }
+
+    return "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3";
+  },
+
+  getChapterUrl(record: AudiobookRecord, chapterIndex: number): string {
+    const basePlaybackUrl = this.getPlaybackUrl(record);
+    if (!record.chapters || record.chapters.length <= 1) return basePlaybackUrl;
+
+    const firstChapterIndex = record.chapters[0]?.index || 1;
+    if (chapterIndex === firstChapterIndex) return basePlaybackUrl;
+
+    const offset = chapterIndex - firstChapterIndex;
+    if (offset === 0) return basePlaybackUrl;
+
+    const parts = basePlaybackUrl.split('/');
+    const filename = parts[parts.length - 1]; 
+    const decodedFilename = decodeURIComponent(filename);
+    
+    // Find the FIRST number in the filename.
+    const numberMatch = decodedFilename.match(/\d+/);
+    if (numberMatch) {
+       const originalNumStr = numberMatch[0];
+       const originalNum = parseInt(originalNumStr, 10);
+       const targetNum = originalNum + offset;
+       
+       let newNumStr = targetNum.toString();
+       if (originalNumStr.startsWith('0') && originalNumStr.length > 1) {
+          newNumStr = newNumStr.padStart(originalNumStr.length, '0');
+       }
+       const newFilename = decodedFilename.replace(originalNumStr, newNumStr);
+       parts[parts.length - 1] = encodeURIComponent(newFilename);
+       return parts.join('/');
+    }
+    
+    return basePlaybackUrl;
   },
 
   // --- Recommendations ---
@@ -398,22 +496,13 @@ export const booksService = {
     }
   },
 
-  async browseAudiobooks(limit = 20): Promise<EnrichedAudiobook[]> {
-    const { data, error } = await supabase
-      .from("audiobook_metadata")
-      .select("*")
-      .limit(limit);
-    if (error || !data) return [];
-    return this.enrichWithBookMetadata(data);
-  },
-
   async getAudiobookBySourceId(
     platform: string,
     sourceId: string,
   ): Promise<EnrichedAudiobook | null> {
     const { data, error } = await supabase
       .from("audiobook_metadata")
-      .select("*")
+      .select("*, book:books(title, author, description, cover_url)")
       .eq("source_platform", platform)
       .eq("source_id", sourceId)
       .maybeSingle();
@@ -444,6 +533,12 @@ export const booksService = {
       average_rating: metadata.averageRating,
       edition: metadata.edition,
       isbn: metadata.isbn,
+      title_en: metadata.title_en,
+      title_vi: metadata.title_vi,
+      description_en: metadata.description_en,
+      description_vi: metadata.description_vi,
+      author_en: metadata.author_en,
+      author_vi: metadata.author_vi,
     };
 
     if (existing) {
@@ -458,5 +553,51 @@ export const booksService = {
     } else {
       return { data: payload, isNew: true }; // Just return for preview in the form
     }
+  },
+
+  async bulkEnrichAudiobooks() {
+    const { data: audiobooks, error: fetchError } = await supabase
+      .from("audiobook_metadata")
+      .select("*");
+
+    if (fetchError) throw fetchError;
+    if (!audiobooks || audiobooks.length === 0) return { count: 0 };
+
+    const enriched = await this.enrichWithBookMetadata(audiobooks, false); // false = full enrichment
+
+    let updatedCount = 0;
+    for (const item of enriched) {
+      if (
+        item.canonical_author ||
+        item.canonical_cover_url ||
+        item.canonical_description
+      ) {
+        const { error: updateError } = await supabase
+          .from("audiobook_metadata")
+          .update({
+            author: item.canonical_author || item.author,
+            cover_url: item.canonical_cover_url || item.cover_url,
+            description: item.canonical_description || item.description,
+            title_en: item.title_en,
+            title_vi: item.title_vi,
+            description_en: item.description_en,
+            description_vi: item.description_vi,
+            author_en: item.author_en,
+            author_vi: item.author_vi,
+            narrator_en: item.narrator_en,
+            narrator_vi: item.narrator_vi,
+            tags: {
+              ...(item.tags || {}),
+              is_enriched: true,
+              enriched_at: new Date().toISOString(),
+            },
+          } as any)
+          .eq("id", item.id);
+
+        if (!updateError) updatedCount++;
+      }
+    }
+
+    return { total: audiobooks.length, updated: updatedCount };
   },
 };

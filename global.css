@@ -75,3 +75,14 @@
   scrollbar-color: #2a324d #0B0F1A;
 }
 
+*:focus {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+input:focus, textarea:focus, select:focus {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+

@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { router } from "expo-router";
 import {
   ActivityIndicator,
   Alert,
@@ -58,7 +59,12 @@ export default function DemandPredictionPage() {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" />
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>{t("analytics.demand_forecast")}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+            <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>{t("analytics.demand_forecast")}</Text>
+        </View>
         <TouchableOpacity
           style={styles.aiBtn}
           onPress={() => runAiMutation.mutate()}
@@ -181,6 +187,7 @@ export default function DemandPredictionPage() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#0B0F1A" },
+  backBtn: { padding: 4 },
   loadingContainer: {
     flex: 1,
     backgroundColor: "#0B0F1A",

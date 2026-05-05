@@ -7,12 +7,13 @@ import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, wit
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useLibrary, Book } from '../../src/hooks/useLibrary';
 import { BookItem } from '../../src/features/books/components/BookItem';
 import { supabase } from '../../src/api/supabase';
 import { useAccountStatus } from '../../src/hooks/useAccountStatus';
 import { ai } from '../../src/core/ai';
+import { useAuthStore } from '../../src/store/useAuthStore';
 
 const { width, height } = Dimensions.get('window');
 
@@ -49,9 +50,16 @@ const AnimatedVoiceWave = ({ index }: { index: number }) => {
 
 export default function SearchPage() {
   const { t } = useTranslation();
+  const params = useLocalSearchParams<{ openFilter?: string }>();
   const router = useRouter();
   const { books, borrows } = useLibrary();
   const [searchQuery, setSearchQuery] = useState('');
+
+  useEffect(() => {
+    if (params.openFilter === 'true') {
+      setIsFilterModalVisible(true);
+    }
+  }, [params.openFilter]);
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [showAiModal, setShowAiModal] = useState(false);
   const [aiResponse, setAiResponse] = useState<any>(null);
@@ -63,6 +71,7 @@ export default function SearchPage() {
   const [isFilterModalVisible, setIsFilterModalVisible] = useState(false);
   const [selectedYear, setSelectedYear] = useState<string | null>(null);
   const [selectedLanguage, setSelectedLanguage] = useState<string | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedRating, setSelectedRating] = useState<number | null>(null);
   const [isAvailableOnly, setIsAvailableOnly] = useState(false);
   const [isSemanticSearch, setIsSemanticSearch] = useState(false);
@@ -93,8 +102,14 @@ export default function SearchPage() {
   }));
 
 
-  const years = ['2025', '2024', '2023', '2022', '2021', '2020', 'Trước 2020'];
-  const languages = ['Tiếng Việt', 'English', 'Tiếng Nhật', 'Tiếng Pháp'];
+  const years = ['2025', '2024', '2023', '2022', '2021', '2020', 'before_2020'];
+  const languagesList = ['vi', 'en', 'ja', 'fr'];
+  
+  const defaultCategories = ['Business & Economics', 'Fiction', 'Computers', 'Skills', 'Children\'s Books', 'Foreign Language Study', 'Psychology'];
+  const availableCategories = Array.from(new Set([
+    ...defaultCategories,
+    ...(allBooks || []).map(b => b.category).filter(Boolean) as string[]
+  ])).sort();
 
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -113,7 +128,7 @@ export default function SearchPage() {
       const results = await books.semanticSearchMutation.mutateAsync({ query, limit: 10 });
       setSemanticResults(results || []);
     } catch (error) {
-      Alert.alert('Lỗi tìm kiếm', 'Không thể thực hiện tìm kiếm ý nghĩa lúc này.');
+      Alert.alert(t('common.error'), t('messages.semantic_search_failed'));
     } finally {
       setIsSearching(false);
     }
@@ -138,7 +153,7 @@ export default function SearchPage() {
           await stopListening(true);
         }, 2500);
       } else {
-        Alert.alert('Quyền truy cập', 'Vui lòng cho phép quyền ghi âm để sử dụng tìm kiếm giọng nói.');
+        Alert.alert(t('common.permissions'), t('messages.mic_permission_required'));
       }
     } catch (err) {
       // Failed to start recording
@@ -199,63 +214,115 @@ export default function SearchPage() {
   const resetFilters = () => {
     setSelectedYear(null);
     setSelectedLanguage(null);
+    setSelectedCategory(null);
     setSelectedRating(null);
     setIsAvailableOnly(false);
   };
 
-  const activeFilterCount = (selectedYear ? 1 : 0) + (selectedLanguage ? 1 : 0) + (selectedRating ? 1 : 0) + (isAvailableOnly ? 1 : 0);
-
+  const activeFilterCount = (selectedYear ? 1 : 0) + (selectedLanguage ? 1 : 0) + (selectedCategory ? 1 : 0) + (selectedRating ? 1 : 0) + (isAvailableOnly ? 1 : 0);
 
   const { isLocked, lockReason } = useAccountStatus();
 
   const filteredBooks = allBooks?.filter(book => {
     const googleInfo = (book.google_data as any)?.volumeInfo;
+    const translatedCategory = book.category ? String(t('categories.' + book.category)) : '';
 
-    
     const matchesSearch = !debouncedQuery || 
       book.title.toLowerCase().includes(debouncedQuery.toLowerCase()) ||
       book.author?.toLowerCase().includes(debouncedQuery.toLowerCase()) ||
       book.category?.toLowerCase().includes(debouncedQuery.toLowerCase()) ||
+      translatedCategory.toLowerCase().includes(debouncedQuery.toLowerCase()) ||
       book.description?.toLowerCase().includes(debouncedQuery.toLowerCase()) ||
       book.appendix?.toLowerCase().includes(debouncedQuery.toLowerCase());
 
-    // Year logic
-    const bookYear = googleInfo?.publishedDate?.substring(0, 4);
+    // Year logic with fallback
+    const bookYear = googleInfo?.publishedDate?.substring(0, 4) || book.published_date?.substring(0, 4);
     const matchesYear = !selectedYear || 
-      (selectedYear === 'Trước 2020' ? (bookYear && parseInt(bookYear) < 2020) : bookYear === selectedYear);
+      (selectedYear === 'before_2020' ? 
+        (bookYear && parseInt(bookYear) < 2020) : bookYear === selectedYear);
 
-    // Language logic (Mapping codes like 'vi' to 'Tiếng Việt')
-    const langMap: Record<string, string> = {
-      'vi': 'Tiếng Việt',
-      'en': 'English',
-      'ja': 'Tiếng Nhật',
-      'fr': 'Tiếng Pháp'
-    };
-    const bookLang = langMap[googleInfo?.language] || googleInfo?.language;
-    const matchesLanguage = !selectedLanguage || bookLang === selectedLanguage;
+    // Language logic with mapping
+    const bookLang = (book.language || '').toLowerCase();
+    const selectedLangCode = selectedLanguage?.toLowerCase();
+    const selectedLangTranslated = selectedLanguage ? String(t('languages.' + selectedLanguage)).toLowerCase() : '';
     
-    // Rating logic
-    const bookRating = googleInfo?.averageRating || 0;
+    // Check both ISO code and translated label
+    const matchesLanguage = !selectedLanguage || 
+      bookLang === selectedLangCode ||
+      bookLang === (selectedLanguage === 'English' ? 'en' : selectedLanguage === 'Vietnamese' ? 'vi' : '') ||
+      String(t('languages.' + bookLang)).toLowerCase() === selectedLangCode ||
+      String(t('languages.' + bookLang)).toLowerCase() === selectedLangTranslated;
+
+    // Category logic with robust mapping
+    const cat = (book.category || '').toLowerCase();
+    const translatedCat = cat ? String(t('categories.' + book.category)).toLowerCase() : '';
+    const selectedCategoryKey = selectedCategory ? selectedCategory.toLowerCase() : '';
+    const selectedCategoryTranslated = selectedCategory ? String(t('categories.' + selectedCategory)).toLowerCase() : '';
+
+    const matchesCategory = !selectedCategory || 
+      cat === selectedCategoryKey ||
+      translatedCat === selectedCategoryKey ||
+      cat === selectedCategoryTranslated ||
+      translatedCat === selectedCategoryTranslated ||
+      // Inverse check for case where database has translated string
+      cat.includes(selectedCategoryKey) ||
+      selectedCategoryKey.includes(cat);
+    
+    // Rating logic with fallback
+    const bookRating = googleInfo?.averageRating || book.average_rating || 0;
     const matchesRating = !selectedRating || bookRating >= selectedRating;
 
     // Availability logic
     const matchesAvailability = !isAvailableOnly || book.available_copies > 0;
 
-
-    return matchesSearch && matchesYear && matchesLanguage && matchesRating && matchesAvailability;
+    return matchesSearch && matchesYear && matchesLanguage && matchesCategory && matchesRating && matchesAvailability;
   });
 
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>{t('common.search')}</Text>
+      <View style={[styles.header, { paddingTop: 20, paddingBottom: 10 }]}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+          <TouchableOpacity 
+            onPress={() => router.canGoBack() ? router.back() : router.replace('/(member)')} 
+            style={styles.backButton}
+            accessibilityRole="button"
+            accessibilityLabel={t('common.back')}
+          >
+            <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+          <Text style={[styles.title, { fontSize: 24 }]}>{t('common.search')}</Text>
+          
+          <View style={{ flex: 1 }} />
+          
+          <TouchableOpacity 
+            onPress={() => {
+              setSearchQuery('');
+              setSelectedYear(null);
+              setSelectedLanguage(null);
+              setSelectedRating(null);
+              setSelectedCategory(null);
+              setIsAvailableOnly(false);
+            }}
+            style={{ 
+              width: 36, 
+              height: 36, 
+              borderRadius: 10, 
+              backgroundColor: 'rgba(255,255,255,0.05)', 
+              alignItems: 'center', 
+              justifyContent: 'center' 
+            }}
+            accessibilityLabel={t('search.reset_all')}
+          >
+            <Ionicons name="refresh" size={18} color="#8B8FA3" />
+          </TouchableOpacity>
+        </View>
         
         {isLocked && (
           <View style={styles.lockWarning}>
             <Ionicons name="lock-closed" size={16} color="#FF4444" />
             <Text style={styles.lockWarningText}>
-              {lockReason || 'Tài khoản đã bị khóa'}
+              {lockReason || t('auth.locked_title')}
             </Text>
           </View>
         )}
@@ -280,7 +347,7 @@ export default function SearchPage() {
               onPress={startListening} 
               style={styles.micBtn}
               accessibilityRole="button"
-              accessibilityLabel="Tìm kiếm bằng giọng nói"
+              accessibilityLabel={t('search.voice_search')}
             >
               <Ionicons name="mic" size={20} color={isListening ? "#FFFFFF" : "#3A75F2"} />
             </TouchableOpacity>
@@ -303,14 +370,14 @@ export default function SearchPage() {
             style={[styles.modeToggle, !isSemanticSearch && styles.modeToggleActive]} 
             onPress={() => setIsSemanticSearch(false)}
           >
-            <Text style={[styles.modeToggleText, !isSemanticSearch && styles.modeToggleTextActive]}>Văn bản</Text>
+            <Text style={[styles.modeToggleText, !isSemanticSearch && styles.modeToggleTextActive]}>{t("common.text_search")}</Text>
           </TouchableOpacity>
           <TouchableOpacity 
             style={[styles.modeToggle, isSemanticSearch && styles.modeToggleActive]} 
             onPress={() => setIsSemanticSearch(true)}
           >
             <Ionicons name="sparkles" size={14} color={isSemanticSearch ? "#FFFFFF" : "#8B8FA3"} style={{ marginRight: 4 }} />
-            <Text style={[styles.modeToggleText, isSemanticSearch && styles.modeToggleTextActive]}>BiblioAI (Ý nghĩa)</Text>
+            <Text style={[styles.modeToggleText, isSemanticSearch && styles.modeToggleTextActive]}>{t("common.semantic_search")}</Text>
           </TouchableOpacity>
         </View>
 
@@ -318,31 +385,37 @@ export default function SearchPage() {
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.activeFiltersBar}>
             {selectedYear && (
               <TouchableOpacity style={styles.activeFilterChip} onPress={() => setSelectedYear(null)}>
-                <Text style={styles.activeFilterText}>Năm: {selectedYear}</Text>
+                <Text style={styles.activeFilterText}>{t("common.year")}: {selectedYear === 'before_2020' ? t('common.before_2020') : selectedYear}</Text>
                 <Ionicons name="close" size={14} color="#3A75F2" />
               </TouchableOpacity>
             )}
             {selectedLanguage && (
               <TouchableOpacity style={styles.activeFilterChip} onPress={() => setSelectedLanguage(null)}>
-                <Text style={styles.activeFilterText}>{selectedLanguage}</Text>
+                <Text style={styles.activeFilterText}>{t('languages.' + selectedLanguage)}</Text>
+                <Ionicons name="close" size={14} color="#3A75F2" />
+              </TouchableOpacity>
+            )}
+            {selectedCategory && (
+              <TouchableOpacity style={styles.activeFilterChip} onPress={() => setSelectedCategory(null)}>
+                <Text style={styles.activeFilterText}>{t('categories.' + selectedCategory)}</Text>
                 <Ionicons name="close" size={14} color="#3A75F2" />
               </TouchableOpacity>
             )}
             {selectedRating && (
               <TouchableOpacity style={styles.activeFilterChip} onPress={() => setSelectedRating(null)}>
-                <Text style={styles.activeFilterText}>{selectedRating} ★ trở lên</Text>
+                <Text style={styles.activeFilterText}>{selectedRating} {t("common.stars_or_more")}</Text>
                 <Ionicons name="close" size={14} color="#3A75F2" />
               </TouchableOpacity>
             )}
             {isAvailableOnly && (
               <TouchableOpacity style={styles.activeFilterChip} onPress={() => setIsAvailableOnly(false)}>
-                <Text style={styles.activeFilterText}>Sẵn có</Text>
+                <Text style={styles.activeFilterText}>{t("common.available_status")}</Text>
                 <Ionicons name="close" size={14} color="#3A75F2" />
               </TouchableOpacity>
             )}
 
             <TouchableOpacity style={styles.resetAllBtn} onPress={resetFilters}>
-              <Text style={styles.resetAllText}>Đặt lại</Text>
+              <Text style={styles.resetAllText}>{t("common.reset")}</Text>
             </TouchableOpacity>
           </ScrollView>
         )}
@@ -354,19 +427,19 @@ export default function SearchPage() {
             {isSearching && (
               <View style={styles.searchingOverlay}>
                 <ActivityIndicator size="small" color="#3A75F2" />
-                <Text style={styles.searchingText}>BiblioAI đang tìm kiếm theo ý nghĩa...</Text>
+                <Text style={styles.searchingText}>{t("common.ai_searching")}</Text>
               </View>
             )}
             {!searchQuery && searchHistory.length > 0 && (
-              <View style={styles.historySection} accessibilityLabel="Lịch sử tìm kiếm">
+              <View style={styles.historySection} accessibilityLabel={t("common.search_history")}>
                 <View style={styles.historyHeader}>
-                  <Text style={styles.historyTitle}>Tìm kiếm gần đây</Text>
+                  <Text style={styles.historyTitle}>{t("common.recent_searches")}</Text>
                   <TouchableOpacity 
                     onPress={clearHistory}
                     accessibilityRole="button"
-                    accessibilityLabel="Xóa tất cả lịch sử tìm kiếm"
+                    accessibilityLabel={t("common.clear_search_history")}
                   >
-                    <Text style={styles.clearText}>Xóa tất cả</Text>
+                    <Text style={styles.clearText}>{t("common.clear_all")}</Text>
                   </TouchableOpacity>
                 </View>
                 <View style={styles.historyChips}>
@@ -376,7 +449,7 @@ export default function SearchPage() {
                       style={styles.chip}
                       onPress={() => setSearchQuery(item)}
                       accessibilityRole="button"
-                      accessibilityLabel={`Tìm lại: ${item}`}
+                      accessibilityLabel={`${t('common.search')}: ${item}`}
                     >
                       <Text style={styles.chipText}>{item}</Text>
                     </TouchableOpacity>
@@ -397,27 +470,16 @@ export default function SearchPage() {
               <View style={styles.similarityBadge}>
                 <Ionicons name="sparkles" size={10} color="#FFFFFF" />
                 <Text style={styles.similarityText}>
-                  {Math.round(((book as any).similarity || 0.5) * 100)}% Match
+                  {Math.round(((book as any).similarity || 0.5) * 100)}% {t('common.match')}
                 </Text>
               </View>
             ) : undefined}
             onPress={(item) => {
-              if (isLocked) {
-                Alert.alert("Tài khoản bị khóa", "Bạn không thể mượn sách do quá hạn hoặc nợ phí. Vui lòng liên hệ thủ thư.");
-                return;
-              }
-              if (book.available_copies > 0) {
-                borrows.borrow.mutate({ isbn: book.isbn, branchId: '1' }, {
-                  onSuccess: () => {
-                    Alert.alert(t('common.success'), t('messages.borrow_success'));
-                  },
-                  onError: (err: any) => {
-                    Alert.alert(t('common.error'), err.message);
-                  }
-                });
-              }
+              router.push(`/(member)/book/${book.isbn}` as any);
             }}
-            onRatingPress={() => router.push(`/(member)/book/${book.isbn}` as any)}
+            onRatingPress={() => {
+              router.push(`/(member)/book/${book.isbn}` as any);
+            }}
           />
         )}
         ListEmptyComponent={
@@ -446,14 +508,45 @@ export default function SearchPage() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Bộ lọc tìm kiếm</Text>
-              <TouchableOpacity onPress={() => setIsFilterModalVisible(false)}>
-                <Ionicons name="close" size={24} color="#FFFFFF" />
-              </TouchableOpacity>
+              <Text style={styles.modalTitle}>{t("common.search_filter")}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                <TouchableOpacity
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    backgroundColor: "rgba(239, 68, 68, 0.12)",
+                    paddingHorizontal: 12,
+                    paddingVertical: 6,
+                    borderRadius: 16,
+                    borderWidth: 1,
+                    borderColor: "rgba(239, 68, 68, 0.25)",
+                  }}
+                  onPress={resetFilters}
+                >
+                  <Ionicons
+                    name="trash-outline"
+                    size={13}
+                    color="#EF4444"
+                    style={{ marginRight: 4 }}
+                  />
+                  <Text
+                    style={{
+                      color: "#EF4444",
+                      fontSize: 11,
+                      fontWeight: "600",
+                    }}
+                  >
+                    {t("common.clear_all")}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => setIsFilterModalVisible(false)}>
+                  <Ionicons name="close" size={24} color="#FFFFFF" />
+                </TouchableOpacity>
+              </View>
             </View>
 
             <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
-              <Text style={styles.filterLabel}>Năm xuất bản</Text>
+              <Text style={styles.filterLabel}>{t("common.published_year")}</Text>
               <View style={styles.filterOptions}>
                 {years.map(y => (
                   <TouchableOpacity 
@@ -461,25 +554,38 @@ export default function SearchPage() {
                     style={[styles.filterOption, selectedYear === y && styles.filterOptionActive]}
                     onPress={() => setSelectedYear(selectedYear === y ? null : y)}
                   >
-                    <Text style={[styles.filterOptionText, selectedYear === y && styles.filterOptionTextActive]}>{y}</Text>
+                    <Text style={[styles.filterOptionText, selectedYear === y && styles.filterOptionTextActive]}>{y === 'before_2020' ? t('common.before_2020') : y}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
 
-              <Text style={styles.filterLabel}>Ngôn ngữ</Text>
+              <Text style={styles.filterLabel}>{t("common.language")}</Text>
               <View style={styles.filterOptions}>
-                {languages.map(l => (
+                {languagesList.map(l => (
                   <TouchableOpacity 
                     key={l} 
                     style={[styles.filterOption, selectedLanguage === l && styles.filterOptionActive]}
                     onPress={() => setSelectedLanguage(selectedLanguage === l ? null : l)}
                   >
-                    <Text style={[styles.filterOptionText, selectedLanguage === l && styles.filterOptionTextActive]}>{l}</Text>
+                    <Text style={[styles.filterOptionText, selectedLanguage === l && styles.filterOptionTextActive]}>{t('languages.' + l)}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
 
-              <Text style={styles.filterLabel}>Đánh giá tối thiểu</Text>
+              <Text style={styles.filterLabel}>{t("common.genre")}</Text>
+              <View style={styles.filterOptions}>
+                {availableCategories.map(c => (
+                  <TouchableOpacity 
+                    key={c} 
+                    style={[styles.filterOption, selectedCategory === c && styles.filterOptionActive]}
+                    onPress={() => setSelectedCategory(selectedCategory === c ? null : c)}
+                  >
+                    <Text style={[styles.filterOptionText, selectedCategory === c && styles.filterOptionTextActive]}>{t('categories.' + c)}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <Text style={styles.filterLabel}>{t("common.min_rating")}</Text>
               <View style={styles.filterOptions}>
                 {[5, 4, 3, 2, 1].map(r => (
                   <TouchableOpacity 
@@ -495,13 +601,13 @@ export default function SearchPage() {
                 ))}
               </View>
 
-              <Text style={styles.filterLabel}>Trạng thái</Text>
+              <Text style={styles.filterLabel}>{t("common.status")}</Text>
               <View style={styles.filterOptions}>
                 <TouchableOpacity 
                   style={[styles.filterOption, isAvailableOnly && styles.filterOptionActive]}
                   onPress={() => setIsAvailableOnly(!isAvailableOnly)}
                 >
-                  <Text style={[styles.filterOptionText, isAvailableOnly && styles.filterOptionTextActive]}>Chỉ hiện sách có sẵn</Text>
+                  <Text style={[styles.filterOptionText, isAvailableOnly && styles.filterOptionTextActive]}>{t("common.available_only")}</Text>
                 </TouchableOpacity>
               </View>
 
@@ -511,7 +617,7 @@ export default function SearchPage() {
               style={styles.applyBtn} 
               onPress={() => setIsFilterModalVisible(false)}
             >
-              <Text style={styles.applyBtnText}>Áp dụng</Text>
+              <Text style={styles.applyBtnText}>{t("common.apply")}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -530,12 +636,12 @@ export default function SearchPage() {
                 <AnimatedVoiceWave key={i} index={i} />
               ))}
             </View>
-            <Text style={styles.voiceStatus}>Đang nghe...</Text>
+            <Text style={styles.voiceStatus}>{t("common.listening")}</Text>
             <TouchableOpacity 
               style={styles.cancelVoiceBtn} 
               onPress={() => stopListening(false)}
             >
-              <Text style={styles.cancelVoiceText}>Hủy</Text>
+              <Text style={styles.cancelVoiceText}>{t("common.cancel")}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -565,7 +671,7 @@ export default function SearchPage() {
                 <View style={styles.aiIconBadge}>
                   <Ionicons name="sparkles" size={24} color="#FFD700" />
                 </View>
-                <Text style={styles.aiModalTitle}>Thủ thư ảo BiblioAI</Text>
+                <Text style={styles.aiModalTitle}>{t("common.ai_librarian")}</Text>
                 <TouchableOpacity onPress={() => setShowAiModal(false)}>
                   <Ionicons name="close" size={24} color="#8B8FA3" />
                 </TouchableOpacity>
@@ -576,7 +682,7 @@ export default function SearchPage() {
                 
                 {aiResponse?.books?.length > 0 && (
                   <View style={styles.aiBooksSection}>
-                    <Text style={styles.aiSubTitle}>Sách gợi ý cho bạn:</Text>
+                    <Text style={styles.aiSubTitle}>{t("common.books_suggested")}</Text>
                     {aiResponse.books.map((book: any) => (
                       <TouchableOpacity 
                         key={book.id} 
@@ -602,7 +708,7 @@ export default function SearchPage() {
                 style={styles.aiCloseBtn}
                 onPress={() => setShowAiModal(false)}
               >
-                <Text style={styles.aiCloseBtnText}>Đã hiểu</Text>
+                <Text style={styles.aiCloseBtnText}>{t("common.got_it")}</Text>
               </TouchableOpacity>
             </LinearGradient>
           </Animated.View>
@@ -615,7 +721,18 @@ export default function SearchPage() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0B0F1A' },
   header: { paddingHorizontal: 24, paddingTop: 60, paddingBottom: 16 },
-  title: { color: '#FFFFFF', fontSize: 24, fontWeight: '800', marginBottom: 20 },
+  title: { color: '#FFFFFF', fontSize: 24, fontWeight: '800' },
+  backButton: {
+    marginRight: 12,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#151929',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#1E2540',
+  },
   searchBar: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#151929', borderRadius: 16, paddingHorizontal: 16, height: 52, borderWidth: 1, borderColor: '#1E2540' },
   searchModeRow: { flexDirection: 'row', marginTop: 16, gap: 8 },
   modeToggle: { 

@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Dimensions } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 
 interface DigitalMembershipPassProps {
   member: {
@@ -14,10 +15,12 @@ interface DigitalMembershipPassProps {
 }
 
 const { width } = Dimensions.get('window');
-const PASS_WIDTH = width * 0.85;
-const PASS_HEIGHT = PASS_WIDTH * 0.6;
+const PASS_WIDTH = Math.min(width * 0.85, 420);
+const PASS_HEIGHT = PASS_WIDTH * 0.62;
 
 export const DigitalMembershipPass: React.FC<DigitalMembershipPassProps> = ({ member }) => {
+  const { t } = useTranslation();
+
   return (
     <View style={styles.container}>
       <LinearGradient
@@ -33,23 +36,23 @@ export const DigitalMembershipPass: React.FC<DigitalMembershipPassProps> = ({ me
             <Text style={styles.logoText}>BiblioTech</Text>
           </View>
           <View style={styles.chipContainer}>
-            <Text style={styles.chipText}>PREMIUM MEMBER</Text>
+            <Text style={styles.chipText}>{t('member.premium_member')}</Text>
           </View>
         </View>
 
         {/* Card Body */}
         <View style={styles.body}>
           <View style={styles.infoSection}>
-            <Text style={styles.label}>Tên thành viên</Text>
+            <Text style={styles.label}>{t('member.member_name')}</Text>
             <Text style={styles.name} numberOfLines={1}>{member.fullName}</Text>
             
             <View style={styles.metaRow}>
               <View>
-                <Text style={styles.label}>Level</Text>
+                <Text style={styles.label}>{t('member.level')}</Text>
                 <Text style={styles.value}>{member.level}</Text>
               </View>
               <View style={{ marginLeft: 24 }}>
-                <Text style={styles.label}>XP</Text>
+                <Text style={styles.label}>{t('member.xp')}</Text>
                 <Text style={styles.value}>{member.xp}</Text>
               </View>
             </View>
@@ -64,14 +67,14 @@ export const DigitalMembershipPass: React.FC<DigitalMembershipPassProps> = ({ me
                 backgroundColor="transparent"
               />
             </View>
-            <Text style={styles.idLabel}>ID: {member.id.substring(0, 8)}</Text>
+            <Text style={styles.idLabel}>{t('member.id')}: {member.id.substring(0, 8)}</Text>
           </View>
         </View>
 
         {/* Card Footer Decoration */}
         <View style={styles.footer}>
           <View style={styles.hologram} />
-          <Text style={styles.validText}>Valid thru 12/2026</Text>
+          <Text style={styles.validText}>{t('member.valid_thru')}</Text>
         </View>
       </LinearGradient>
     </View>

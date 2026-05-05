@@ -14,8 +14,10 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useConfig } from '@/src/hooks/library/useConfig';
+import { useTranslation } from 'react-i18next';
 
 export default function AdminConfig() {
+  const { i18n, t } = useTranslation();
   const { getConfig, updateConfig } = useConfig();
   const { data: config, isLoading } = getConfig();
   const updateMutation = updateConfig;
@@ -29,15 +31,15 @@ export default function AdminConfig() {
     try {
       await updateMutation.mutateAsync({ key, value });
       if (Platform.OS === 'web') {
-        window.alert(`Đã cập nhật ${label}`);
+        window.alert(t('common.success') + `: ${label}`);
       } else {
-        Alert.alert('Thành công', `Đã cập nhật ${label}`);
+        Alert.alert(t('common.success'), t('config.update_success') + `: ${label}`);
       }
     } catch (err: any) {
       if (Platform.OS === 'web') {
         window.alert(err.message);
       } else {
-        Alert.alert('Lỗi', err.message);
+        Alert.alert(t('common.error'), err.message);
       }
     }
   };
@@ -60,29 +62,29 @@ export default function AdminConfig() {
   const configItems = [
     {
       key: 'fine_rate',
-      label: 'Phí phạt mỗi ngày',
-      unit: 'VNĐ',
+      label: t('config.fine_rate'),
+      unit: i18n.language === 'vi' ? 'VNĐ' : 'VND',
       icon: 'cash-outline',
       color: '#F59E0B',
     },
     {
       key: 'member_due_days',
-      label: 'Hạn mượn (Độc giả)',
-      unit: 'Ngày',
+      label: t('config.member_due_days'),
+      unit: i18n.language === 'vi' ? 'Ngày' : 'Days',
       icon: 'calendar-outline',
       color: '#4F8EF7',
     },
     {
       key: 'admin_due_days',
-      label: 'Hạn mượn (Thủ thư/AD)',
-      unit: 'Ngày',
+      label: t('config.admin_due_days'),
+      unit: i18n.language === 'vi' ? 'Ngày' : 'Days',
       icon: 'time-outline',
       color: '#10B981',
     },
     {
       key: 'max_books',
-      label: 'Số sách mượn tối đa',
-      unit: 'Cuốn',
+      label: t('config.max_books'),
+      unit: i18n.language === 'vi' ? 'Cuốn' : 'Books',
       icon: 'book-outline',
       color: '#A855F7',
     },
@@ -92,9 +94,9 @@ export default function AdminConfig() {
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll}>
         <View style={styles.header}>
-          <Text style={styles.title}>Cấu hình Hệ thống</Text>
+          <Text style={styles.title}>{t('config.system_config')}</Text>
           <Text style={styles.subtitle}>
-            Thiết lập các tham số vận hành thư viện
+            {t('config.system_config_desc')}
           </Text>
         </View>
 
@@ -132,8 +134,7 @@ export default function AdminConfig() {
         <View style={styles.warningBox}>
           <Ionicons name="information-circle" size={20} color="#4F8EF7" />
           <Text style={styles.warningText}>
-            Các thay đổi này sẽ áp dụng ngay lập tức cho toàn bộ các giao dịch
-            mượn sách mới.
+            {t('config.warning_config')}
           </Text>
         </View>
 
@@ -141,12 +142,12 @@ export default function AdminConfig() {
           style={styles.resetBtn}
           onPress={() =>
             Alert.alert(
-              'Thông báo',
-              'Tính năng đặt lại mặc định đang phát triển',
+              t('common.notice'),
+              t('config.default_feature_dev'),
             )
           }
         >
-          <Text style={styles.resetText}>Đặt lại mặc định</Text>
+          <Text style={styles.resetText}>{t('config.reset_default')}</Text>
         </TouchableOpacity>
       </ScrollView>
 
@@ -155,7 +156,7 @@ export default function AdminConfig() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Cập nhật {selectedLabel}</Text>
+              <Text style={styles.modalTitle}>{t('common.edit')} {selectedLabel}</Text>
               <TouchableOpacity onPress={() => setModalVisible(false)}>
                 <Ionicons name="close" size={24} color="#5A5F7A" />
               </TouchableOpacity>
@@ -177,7 +178,7 @@ export default function AdminConfig() {
                 onPress={() => setModalVisible(false)}
                 style={[styles.modalBtn, styles.cancelBtn]}
               >
-                <Text style={styles.cancelBtnText}>Hủy</Text>
+                <Text style={styles.cancelBtnText}>{t('common.cancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={() => {
@@ -188,7 +189,7 @@ export default function AdminConfig() {
                 }}
                 style={[styles.modalBtn, styles.submitBtn]}
               >
-                <Text style={styles.submitBtnText}>Cập nhật</Text>
+                <Text style={styles.submitBtnText}>{t('common.save')}</Text>
               </TouchableOpacity>
             </View>
           </View>

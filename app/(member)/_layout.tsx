@@ -59,6 +59,7 @@ export default function MemberLayout() {
     <ErrorBoundary>
       <View style={{ flex: 1 }}>
         <Tabs
+          key={t('tabs.home')}
           screenOptions={{
             headerShown: false,
             tabBarStyle: {
@@ -67,8 +68,8 @@ export default function MemberLayout() {
               left: 12,
               right: 12,
               backgroundColor: "#0B0F1A",
-              borderColor: "#2C354D",
-              borderWidth: 1,
+              borderColor: "transparent",
+              borderWidth: 0,
               borderRadius: 16,
               overflow: "hidden",
               height: isMainScreen ? 65 : 65.1,
@@ -80,8 +81,8 @@ export default function MemberLayout() {
               opacity: isMainScreen || isTabBarVisible ? 1 : 0,
             },
             tabBarItemStyle: {
-              borderRightWidth: 0.5,
-              borderRightColor: "#1E2540",
+              borderRightWidth: 0,
+              borderRightColor: "transparent",
               height: "100%",
             },
             tabBarActiveTintColor: "#4F8EF7",

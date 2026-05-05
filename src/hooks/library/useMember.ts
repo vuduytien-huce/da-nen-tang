@@ -282,47 +282,57 @@ export function useAnnotations(isbn: string) {
   };
 }
 
+export function useInteractions(userId?: string, itemType?: "BOOK" | "AUDIOBOOK") {
+  return useQuery({
+    queryKey: ["user_interactions", userId, itemType],
+    enabled: !!userId,
+    queryFn: async () => {
+      let query = supabase.from("user_interactions").select("*").eq("user_id", userId!);
+      if (itemType) query = query.eq("item_type", itemType);
+      const { data, error } = await query;
+      if (error) throw error;
+      return data || [];
+    },
+  });
+}
+
 export function useSocial(itemId: string, itemType: "BOOK" | "AUDIOBOOK") {
   const { profile } = useAuthStore();
-  const [isLiked, setIsLiked] = useState(false);
-  const [isBookmarked, setIsBookmarked] = useState(false);
+  const queryClient = useQueryClient();
 
-  useEffect(() => {
-    if (profile?.id && itemId) {
-      membersService
-        .getInteractions(profile.id, itemId, itemType)
-        .then((data) => {
-          setIsLiked(data.some((i: any) => i.interaction_type === "LIKE"));
-          setIsBookmarked(
-            data.some((i: any) => i.interaction_type === "BOOKMARK"),
-          );
-        });
-    }
-  }, [profile?.id, itemId]);
+  const { data: interactions = [] } = useQuery({
+    queryKey: ["user_interactions", profile?.id, itemId, itemType],
+    enabled: !!profile?.id && !!itemId,
+    queryFn: () => membersService.getInteractions(profile!.id, itemId, itemType),
+  });
 
-  const toggle = async (type: "LIKE" | "BOOKMARK") => {
-    if (!profile?.id) return;
-    const current = type === "LIKE" ? isLiked : isBookmarked;
-    const setter = type === "LIKE" ? setIsLiked : setIsBookmarked;
-    setter(!current);
-    try {
-      await membersService.toggleInteraction(
+  const isLiked = interactions.some((i: any) => i.interaction_type === "LIKE");
+  const isBookmarked = interactions.some((i: any) => i.interaction_type === "BOOKMARK");
+
+  const toggle = useMutation({
+    mutationFn: async (type: "LIKE" | "BOOKMARK") => {
+      if (!profile?.id) return;
+      const currentState = type === "LIKE" ? isLiked : isBookmarked;
+      return membersService.toggleInteraction(
         profile.id,
         itemId,
         itemType,
         type,
-        current,
+        currentState
       );
-    } catch (e) {
-      setter(current);
-    }
-  };
+    },
+    onSuccess: () => {
+      // Invalidate both the specific item query and the global list query
+      queryClient.invalidateQueries({ queryKey: ["user_interactions"] });
+    },
+  });
 
   return {
     isLiked,
     isBookmarked,
-    toggleLike: () => toggle("LIKE"),
-    toggleBookmark: () => toggle("BOOKMARK"),
+    toggleLike: () => toggle.mutate("LIKE"),
+    toggleBookmark: () => toggle.mutate("BOOKMARK"),
+    isLoading: toggle.isPending,
   };
 }
 

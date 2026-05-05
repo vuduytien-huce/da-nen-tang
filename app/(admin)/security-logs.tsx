@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, FlatList, ActivityIndicator } from 'react-native';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { auditService } from '../../src/services/auditService';
 import { format } from 'date-fns';
 import { Ionicons } from '@expo/vector-icons';
@@ -12,6 +12,9 @@ export default function SecurityLogScreen() {
     queryKey: ['audit_logs'],
     queryFn: () => auditService.getLogs(100),
     refetchInterval: 10000, // Refresh every 10s
+    staleTime: 5 * 1000,
+    gcTime: 5 * 60 * 1000,
+    placeholderData: keepPreviousData,
   });
 
   const getIcon = (action: string) => {

@@ -20,10 +20,12 @@ import { sync } from '@/src/core/sync';
 import NetInfo from '@react-native-community/netinfo';
 import { haptics } from '@/src/core/haptics';
 import AnnotationLayer from '@/src/features/members/components/AnnotationLayer';
+import { useTranslation } from 'react-i18next';
 
 const { width } = Dimensions.get('window');
 
 export default function BookDetailPage() {
+  const { t } = useTranslation();
   const { isbn } = useLocalSearchParams<{ isbn: string }>();
   const router = useRouter();
   const profile = useAuthStore((state) => state.profile);
@@ -355,9 +357,9 @@ export default function BookDetailPage() {
                 <Text style={styles.metaLabel}>ISBN</Text>
                 <Text style={styles.metaValue}>{book.isbn}</Text>
               </View>
-              <View style={styles.metaItem} accessibilityLabel={`Thể loại: ${book.category || 'Chưa xác định'}`}>
-                <Text style={styles.metaLabel}>Thể loại</Text>
-                <Text style={styles.metaValue}>{book.category || 'N/A'}</Text>
+              <View style={styles.metaItem} accessibilityLabel={`Thể loại: ${book.category ? t('categories.' + book.category, book.category) : 'Chưa xác định'}`}>
+                <Text style={styles.metaLabel}>{t('common.category', 'Thể loại')}</Text>
+                <Text style={styles.metaValue}>{book.category ? t('categories.' + book.category, book.category) : 'N/A'}</Text>
               </View>
               <View style={styles.metaItem} accessibilityLabel={`Ngôn ngữ: ${book.language || 'Tiếng Việt'}`}>
                 <Text style={styles.metaLabel}>Ngôn ngữ</Text>

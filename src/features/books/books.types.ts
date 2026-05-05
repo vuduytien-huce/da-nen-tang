@@ -14,6 +14,12 @@ export interface Book {
   average_rating?: number;
   ratings_count?: number;
   edition?: string;
+  title_en?: string;
+  title_vi?: string;
+  description_en?: string;
+  description_vi?: string;
+  author_en?: string;
+  author_vi?: string;
   appendix?: string;
 }
 
@@ -31,6 +37,12 @@ export interface BookMetadata {
   averageRating?: number;
   ratingsCount?: number;
   edition?: string;
+  author_en?: string;
+  author_vi?: string;
+  description_en?: string;
+  description_vi?: string;
+  title_en?: string;
+  title_vi?: string;
   syncSource?: {
     google: boolean;
     openLib: boolean;
@@ -44,9 +56,17 @@ export interface AudiobookRecord {
   source_url: string;
   preview_url: string | null;
   title: string;
+  title_en?: string;
+  title_vi?: string;
   author: string | null;
   narrator: string | null;
   description: string | null;
+  description_en?: string;
+  description_vi?: string;
+  author_en?: string;
+  author_vi?: string;
+  narrator_en?: string;
+  narrator_vi?: string;
   publisher: string | null;
   isbn: string | null;
   language: string;
@@ -60,6 +80,12 @@ export interface AudiobookRecord {
     is_enriched?: boolean;
     enriched_at?: string;
     [key: string]: any;
+  } | null;
+  book?: {
+    title: string;
+    author: string | null;
+    description: string | null;
+    cover_url: string | null;
   } | null;
   price: number | null;
   is_free: boolean;

@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/src/api/supabase';
 import { booksService } from '@/src/features/books/books.service';
 import { useTranslation } from 'react-i18next';
+import { router } from 'expo-router';
 
 export default function MetadataSources() {
   const { t } = useTranslation();
@@ -55,6 +56,9 @@ export default function MetadataSources() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+          <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+        </TouchableOpacity>
         <Text style={styles.headerTitle}>{t('librarian.metadata_sources')}</Text>
         <TouchableOpacity onPress={() => {
           setEditingSource(null);
@@ -66,8 +70,8 @@ export default function MetadataSources() {
       </View>
 
       <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Đồng bộ Sách nói</Text>
-        <Text style={styles.sectionSubtitle}>Cập nhật dữ liệu từ các nguồn audiobook</Text>
+        <Text style={styles.sectionTitle}>{t('librarian.sync_audiobook', 'Đồng bộ Sách nói')}</Text>
+        <Text style={styles.sectionSubtitle}>{t('librarian.sync_audiobook_desc', 'Cập nhật dữ liệu từ các nguồn audiobook')}</Text>
       </View>
 
       <View style={styles.syncContainer}>
@@ -135,7 +139,7 @@ export default function MetadataSources() {
             <TextInput
               value={formData.name}
               onChangeText={(v) => setFormData({...formData, name: v})}
-              placeholder="Tên nguồn (vd: NLV API)"
+              placeholder={t('librarian.source_name_placeholder', 'Tên nguồn (vd: NLV API)')}
               placeholderTextColor="#3D4260"
               style={styles.input}
             />
@@ -208,6 +212,7 @@ const SyncCard = ({ name, icon, platform, description, isInternal }: any) => {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0B0F1A' },
+  backBtn: { marginRight: 12, padding: 4 },
   header: { paddingHorizontal: 24, paddingTop: 60, paddingBottom: 10, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   headerTitle: { color: '#FFFFFF', fontSize: 24, fontWeight: '700' },
   sectionHeader: { paddingHorizontal: 24, marginTop: 20, marginBottom: 10 },

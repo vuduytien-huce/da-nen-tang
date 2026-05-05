@@ -34,6 +34,9 @@ export default function AdminSystem() {
     role: 'MEMBER',
   });
 
+  const [showAIEnrichModal, setShowAIEnrichModal] = React.useState(false);
+  const [isEnriching, setIsEnriching] = React.useState(false);
+
   const [isAuditing, setIsAuditing] = React.useState(false);
   const [auditResult, setAuditResult] =
     React.useState<SecurityAuditResult | null>(null);
@@ -143,12 +146,17 @@ export default function AdminSystem() {
     }
   };
 
-  const handleBackfillEmbeddings = async () => {
+  const handleConfirmAIEnrich = async () => {
+    setIsEnriching(true);
     try {
       const data = await adminService.backfillEmbeddings();
+      setShowAIEnrichModal(false);
       Alert.alert(t('common.success'), `${t('common.done')}: ${data.updated}. ${t('common.available')}: ${data.remaining}`);
     } catch (err: any) {
+      setShowAIEnrichModal(false);
       Alert.alert(t('common.error'), err.message);
+    } finally {
+      setIsEnriching(false);
     }
   };
 
@@ -228,7 +236,7 @@ export default function AdminSystem() {
         <View style={styles.monitorGrid}>
           <MonitorWidget
             label={t('admin.api_status')}
-            value={stats?.apiStatus || '---'}
+            value={stats?.apiStatus === 'Healthy' ? t('admin.status_online') : (stats?.apiStatus || '---')}
             icon="pulse"
             color="#10B981"
           />
@@ -254,7 +262,7 @@ export default function AdminSystem() {
             color="#F59E0B"
           />
           <TouchableOpacity
-            onPress={handleBackfillEmbeddings}
+            onPress={() => setShowAIEnrichModal(true)}
             style={styles.aiEmbedButton}
             accessibilityRole="button"
             accessibilityLabel={t('a11y.ai_summary_hint')}
@@ -347,7 +355,7 @@ export default function AdminSystem() {
                     )}
                   </View>
                   <Text style={styles.userRole}>
-                    {user.role} • {user.email}
+                    {user.role ? t(`roles.${user.role.toLowerCase()}`)?.toUpperCase() : ""} • {user.email}
                   </Text>
                 </View>
                 <View style={styles.userActions}>
@@ -707,7 +715,7 @@ export default function AdminSystem() {
                       fontWeight: '700',
                     }}
                   >
-                    {role}
+                    {t(`roles.${role.toLowerCase()}`)?.toUpperCase()}
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -739,6 +747,121 @@ export default function AdminSystem() {
                     {t('admin.create_user')}
                   </Text>
                 )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* AI Enrich Modal */}
+      <Modal visible={showAIEnrichModal} transparent animationType="fade">
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: 'rgba(0,0,0,0.85)',
+            justifyContent: 'center',
+            alignItems: 'center',
+            padding: 24,
+          }}
+        >
+          <View
+            style={{
+              backgroundColor: '#171B2B',
+              borderRadius: 28,
+              padding: 28,
+              borderWidth: 1,
+              borderColor: '#22293F',
+              width: '100%',
+              maxWidth: 400,
+              alignItems: 'center',
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 10 },
+              shadowOpacity: 0.35,
+              shadowRadius: 20,
+              elevation: 12,
+            }}
+          >
+            <View
+              style={{
+                width: 64,
+                height: 64,
+                borderRadius: 32,
+                backgroundColor: 'rgba(79, 142, 247, 0.12)',
+                justifyContent: 'center',
+                alignItems: 'center',
+                marginBottom: 20,
+              }}
+            >
+              <Ionicons name="sparkles" size={32} color="#4F8EF7" />
+            </View>
+
+            <Text
+              style={{
+                color: '#FFFFFF',
+                fontSize: 20,
+                fontWeight: '700',
+                marginBottom: 12,
+                textAlign: 'center',
+              }}
+            >
+              {t('admin.ai_enrich_title')}
+            </Text>
+
+            <Text
+              style={{
+                color: '#8B8FA3',
+                fontSize: 14,
+                lineHeight: 22,
+                marginBottom: 28,
+                textAlign: 'center',
+              }}
+            >
+              {t('admin.ai_enrich_msg')}
+            </Text>
+
+            <View style={{ width: '100%' }}>
+              <TouchableOpacity
+                onPress={handleConfirmAIEnrich}
+                disabled={isEnriching}
+                style={{
+                  backgroundColor: '#4F8EF7',
+                  paddingVertical: 14,
+                  borderRadius: 16,
+                  alignItems: 'center',
+                  marginBottom: 12,
+                  flexDirection: 'row',
+                  justifyContent: 'center',
+                  shadowColor: '#4F8EF7',
+                  shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: 0.25,
+                  shadowRadius: 8,
+                }}
+              >
+                {isEnriching ? (
+                  <ActivityIndicator color="#FFFFFF" style={{ marginRight: 8 }} />
+                ) : (
+                  <Ionicons name="sparkles" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
+                )}
+                <Text style={{ color: '#FFFFFF', fontSize: 15, fontWeight: '600' }}>
+                  {t('admin.ai_enrich_start')}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => setShowAIEnrichModal(false)}
+                disabled={isEnriching}
+                style={{
+                  backgroundColor: 'transparent',
+                  paddingVertical: 14,
+                  borderRadius: 16,
+                  alignItems: 'center',
+                  borderWidth: 1,
+                  borderColor: '#22293F',
+                }}
+              >
+                <Text style={{ color: '#5A5F7A', fontSize: 15, fontWeight: '500' }}>
+                  {t('common.cancel')}
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -851,7 +974,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    borderWidth: 1,
+    borderWidth: 0,
+    borderColor: 'transparent',
   },
   aiEmbedLeft: {
     flexDirection: 'row',
@@ -871,8 +995,8 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     padding: 24,
     marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#2E3654',
+    borderWidth: 0,
+    borderColor: 'transparent',
   },
   statCardContent: {
     flexDirection: 'row',
@@ -924,8 +1048,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#151929',
     borderRadius: 20,
     padding: 20,
-    borderWidth: 1,
-    borderColor: '#1E2540',
+    borderWidth: 0,
+    borderColor: 'transparent',
   },
   userItem: {
     flexDirection: 'row',
@@ -979,8 +1103,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#151929',
     borderRadius: 24,
     padding: 20,
-    borderWidth: 1,
-    borderColor: '#1E2540',
+    borderWidth: 0,
+    borderColor: 'transparent',
   },
   auditHeader: {
     flexDirection: 'row',
@@ -1119,8 +1243,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#151929',
     borderRadius: 24,
     padding: 24,
-    borderWidth: 1,
-    borderColor: '#1E2540',
+    borderWidth: 0,
+    borderColor: 'transparent',
     marginBottom: 24,
   },
 });

@@ -148,8 +148,8 @@ export default function AIChatPage() {
     <SafeAreaView style={styles.container}>
       <LinearGradient colors={['#0F121D', '#0B0F1A']} style={styles.container}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-            <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
+          <TouchableOpacity onPress={() => router.back()} style={[styles.backBtn, { marginRight: 8 }]}>
+            <Ionicons name="arrow-back" size={18} color="#FFFFFF" />
           </TouchableOpacity>
           <View style={styles.headerInfo}>
             <Text style={styles.headerTitle}>Trò chuyện với BiblioAI</Text>

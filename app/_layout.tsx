@@ -7,8 +7,7 @@ import {
 } from "expo-router";
 import React, { useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { ActivityIndicator, Text, View, TouchableOpacity, Platform } from "react-native";
-import { Ionicons, Feather } from "@expo/vector-icons";
+import { ActivityIndicator, Platform, Text, View } from "react-native";
 import { PaperProvider } from "react-native-paper";
 import "react-native-reanimated";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -81,8 +80,10 @@ function RootLayoutContent() {
     const isLibrarian = segment === "(librarian)";
     const isMember = segment === "(member)";
 
+    const isPublic = segment === "member";
+
     if (!session) {
-      if (!isAuth) router.replace("/(auth)/login");
+      if (!isAuth && !isPublic) router.replace("/(auth)/login");
       return;
     }
 
@@ -92,7 +93,9 @@ function RootLayoutContent() {
       const isSharedPath =
         segs.includes("notifications") ||
         segs.includes("profile") ||
-        segs.includes("settings");
+        segs.includes("downloads") ||
+        segs.includes("settings") ||
+        segs.includes("audiobooks");
 
       if (role === "ADMIN") {
         if (!isAdmin && !isSharedPath) router.replace("/(admin)");
@@ -119,13 +122,18 @@ function RootLayoutContent() {
   }, [profile?.locale]);
 
   useEffect(() => {
-    if (Platform.OS !== 'web') return;
+    if (Platform.OS !== "web") return;
     const onScroll = () => {
       useTabBarStore.getState().triggerVisible();
     };
-    document.addEventListener('scroll', onScroll, { capture: true, passive: true });
+    document.addEventListener("scroll", onScroll, {
+      capture: true,
+      passive: true,
+    });
     return () => {
-      document.removeEventListener('scroll', onScroll, { capture: true } as any);
+      document.removeEventListener("scroll", onScroll, {
+        capture: true,
+      } as any);
     };
   }, []);
 
@@ -169,14 +177,14 @@ function RootLayoutContent() {
     <QueryClientProvider client={queryClient}>
       <SafeAreaProvider>
         <PaperProvider>
-          <View 
+          <View
             onTouchStart={(e) => {
-              if (Platform.OS !== 'web') {
+              if (Platform.OS !== "web") {
                 lastY.current = e.nativeEvent.pageY;
               }
             }}
             onTouchMove={(e) => {
-              if (Platform.OS !== 'web') {
+              if (Platform.OS !== "web") {
                 const diff = Math.abs(lastY.current - e.nativeEvent.pageY);
                 if (diff > 5) {
                   useTabBarStore.getState().triggerVisible();
@@ -185,7 +193,7 @@ function RootLayoutContent() {
             }}
             style={{ flex: 1, backgroundColor: "#0B0F1A" }}
           >
-            {Platform.OS === 'web' && (
+            {Platform.OS === "web" && (
               <style>{`
                 ::-webkit-scrollbar {
                   display: none;
@@ -223,44 +231,8 @@ function RootLayoutContent() {
                 }
               `}</style>
             )}
-            {session && router.canGoBack() && !(segments.length === 1 || (segments[segments.length - 1] as string) === "index") && (
-              <View 
-                pointerEvents="box-none"
-                style={["inventory", "audit"].includes(segments[segments.length - 1] as string) ? {
-                  position: "absolute",
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  paddingTop: 12,
-                  paddingBottom: 0,
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  paddingHorizontal: 16,
-                  backgroundColor: "transparent",
-                  zIndex: 10,
-                } : {
-                  paddingTop: 12,
-                  paddingBottom: 0,
-                  marginBottom: -16,
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  paddingHorizontal: 16,
-                  backgroundColor: "transparent",
-                  zIndex: 10,
-                }}>
-                <TouchableOpacity
-                  onPress={() => router.back()}
-                  accessibilityRole="button"
-                  accessibilityLabel="Quay lại"
-                  style={{
-                    padding: 4,
-                  }}
-                >
-                  <Feather name="arrow-left" size={20} color="#FFFFFF" />
-                </TouchableOpacity>
-              </View>
-            )}
             <Stack
+              key={i18n.language}
               screenOptions={{
                 headerShown: false,
                 animation: "slide_from_right",
@@ -273,7 +245,7 @@ function RootLayoutContent() {
               <Stack.Screen name="(admin)" />
               <Stack.Screen name="(librarian)" />
             </Stack>
-            {session && profile?.role === "MEMBER" && <AiAssistant />}
+            {session && profile && <AiAssistant />}
           </View>
         </PaperProvider>
       </SafeAreaProvider>

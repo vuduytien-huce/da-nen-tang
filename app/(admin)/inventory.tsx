@@ -13,6 +13,18 @@ export default function AdminInventory() {
   const queryClient = useQueryClient();
   const [isAnalyzing, setIsAnalyzing] = React.useState(false);
 
+  const getBranchDisplayName = (name: string) => {
+    if (!name) return '';
+    const lower = name.toLowerCase();
+    if (lower.includes('south') || lower.includes('miền nam') || lower.includes('hồ chí minh') || lower.includes('hcm')) {
+      return t('admin.branch_south', 'Chi nhánh phía Nam - TP.HCM');
+    }
+    if (lower.includes('main') || lower.includes('chính') || lower.includes('hà nội') || lower.includes('hn')) {
+      return t('admin.branch_main', 'Chi nhánh Chính - Hà Nội');
+    }
+    return name;
+  };
+
   // 1. Fetch Branches
   const { data: branches, isLoading: loadingBranches } = useQuery({
     queryKey: ['admin_branches'],
@@ -104,12 +116,12 @@ export default function AdminInventory() {
       borderRadius: 20,
       padding: 20,
       marginBottom: 12,
-      borderWidth: 1,
-      borderColor: '#2E3654',
+      borderWidth: 0,
+      borderColor: 'transparent',
     }}>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
         <View style={{ backgroundColor: '#4F8EF720', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 }}>
-          <Text style={{ color: '#4F8EF7', fontSize: 10, fontWeight: '800' }}>AI SUGGESTION</Text>
+          <Text style={{ color: '#4F8EF7', fontSize: 10, fontWeight: '800' }}>{t('librarian.ai_suggestion_badge')}</Text>
         </View>
         <Text style={{ color: '#5A5F7A', fontSize: 11 }}>{new Date(item.created_at).toLocaleTimeString()}</Text>
       </View>
@@ -122,12 +134,12 @@ export default function AdminInventory() {
         <View style={{ flexDirection: 'row', marginTop: 16, alignItems: 'center' }}>
           <View style={{ flex: 1, backgroundColor: '#0B0F1A', padding: 12, borderRadius: 12, marginRight: 8 }}>
             <Text style={{ color: '#8B8FA3', fontSize: 10, textTransform: 'uppercase' }}>{t('common.from')}</Text>
-            <Text style={{ color: '#FFFFFF', fontSize: 12, fontWeight: '700', marginTop: 2 }}>{item.metadata.from_branch}</Text>
+            <Text style={{ color: '#FFFFFF', fontSize: 12, fontWeight: '700', marginTop: 2 }}>{getBranchDisplayName(item.metadata.from_branch)}</Text>
           </View>
           <Ionicons name="arrow-forward" size={16} color="#4F8EF7" />
           <View style={{ flex: 1, backgroundColor: '#0B0F1A', padding: 12, borderRadius: 12, marginLeft: 8 }}>
             <Text style={{ color: '#8B8FA3', fontSize: 10, textTransform: 'uppercase' }}>{t('common.to')}</Text>
-            <Text style={{ color: '#FFFFFF', fontSize: 12, fontWeight: '700', marginTop: 2 }}>{item.metadata.to_branch}</Text>
+            <Text style={{ color: '#FFFFFF', fontSize: 12, fontWeight: '700', marginTop: 2 }}>{getBranchDisplayName(item.metadata.to_branch)}</Text>
           </View>
         </View>
       )}
@@ -139,8 +151,8 @@ export default function AdminInventory() {
             t('admin.transfer_confirm_msg', { 
               count: item.metadata?.quantity || 1, 
               title: item.book?.title || item.book_isbn,
-              from: item.metadata?.from_branch,
-              to: item.metadata?.to_branch
+              from: getBranchDisplayName(item.metadata?.from_branch),
+              to: getBranchDisplayName(item.metadata?.to_branch)
             }),
             [
               { text: t('common.cancel'), style: 'cancel' },
@@ -182,7 +194,7 @@ export default function AdminInventory() {
         <TouchableOpacity 
           onPress={runAIAnalysis}
           disabled={isAnalyzing}
-          style={{ width: 48, height: 48, backgroundColor: '#4F8EF720', borderRadius: 16, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#4F8EF740' }}
+          style={{ width: 48, height: 48, backgroundColor: '#4F8EF720', borderRadius: 16, alignItems: 'center', justifyContent: 'center', borderWidth: 0, borderColor: 'transparent' }}
         >
           {isAnalyzing ? <ActivityIndicator size="small" color="#4F8EF7" /> : <Ionicons name="sparkles" size={24} color="#4F8EF7" />}
         </TouchableOpacity>
@@ -195,11 +207,11 @@ export default function AdminInventory() {
       >
         {/* Stats Row */}
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 24 }}>
-          <View style={{ backgroundColor: '#151929', borderRadius: 20, padding: 16, width: '48%', borderWidth: 1, borderColor: '#1E2540' }}>
+          <View style={{ backgroundColor: '#151929', borderRadius: 20, padding: 16, width: '48%', borderWidth: 0, borderColor: 'transparent' }}>
             <Text style={{ color: '#8B8FA3', fontSize: 12, fontWeight: '600' }}>{t('admin.total_copies')}</Text>
             <Text style={{ color: '#FFFFFF', fontSize: 24, fontWeight: '800', marginTop: 8 }}>{stats?.total || 0}</Text>
           </View>
-          <View style={{ backgroundColor: '#151929', borderRadius: 20, padding: 16, width: '48%', borderWidth: 1, borderColor: '#1E2540' }}>
+          <View style={{ backgroundColor: '#151929', borderRadius: 20, padding: 16, width: '48%', borderWidth: 0, borderColor: 'transparent' }}>
             <Text style={{ color: '#8B8FA3', fontSize: 12, fontWeight: '600' }}>{t('admin.available_copies')}</Text>
             <Text style={{ color: '#10B981', fontSize: 24, fontWeight: '800', marginTop: 8 }}>{stats?.available || 0}</Text>
           </View>
@@ -217,7 +229,7 @@ export default function AdminInventory() {
           ))}
           
           {(!suggestions || suggestions.length === 0) && (
-            <View style={{ padding: 40, alignItems: 'center', backgroundColor: '#151929', borderRadius: 24, borderStyle: 'dashed', borderWidth: 1, borderColor: '#2E3654' }}>
+            <View style={{ padding: 40, alignItems: 'center', backgroundColor: '#151929', borderRadius: 24, borderStyle: 'dashed', borderWidth: 0, borderColor: 'transparent' }}>
               <Ionicons name="analytics-outline" size={32} color="#5A5F7A" />
               <Text style={{ color: '#5A5F7A', fontSize: 14, textAlign: 'center', marginTop: 12 }}>{t('admin.no_suggestions_hint')}</Text>
             </View>
@@ -235,14 +247,14 @@ export default function AdminInventory() {
               marginBottom: 12,
               flexDirection: 'row',
               alignItems: 'center',
-              borderWidth: 1,
-              borderColor: '#1E2540'
+              borderWidth: 0,
+              borderColor: 'transparent'
             }}>
               <View style={{ width: 48, height: 48, backgroundColor: '#4F8EF715', borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginRight: 16 }}>
                 <Ionicons name="business" size={24} color="#4F8EF7" />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '700' }}>{branch.name}</Text>
+                <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '700' }}>{getBranchDisplayName(branch.name)}</Text>
                 <Text style={{ color: '#8B8FA3', fontSize: 12, marginTop: 2 }}>{branch.location}</Text>
               </View>
               <Ionicons name="chevron-forward" size={20} color="#5A5F7A" />

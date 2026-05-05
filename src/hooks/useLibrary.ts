@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { useMember, useAnnotations, useSocial, useBookClubs } from './library/useMember';
+import { useMember, useAnnotations, useSocial, useBookClubs, useInteractions } from './library/useMember';
 import { useClubChat } from './library/useClubChat';
 import { useAdmin } from './library/useAdmin';
 import { useContent } from './library/useContent';
@@ -9,7 +9,7 @@ import { useAnalytics } from './library/useAnalytics';
 import { Book } from '../features/books/books.types';
 import { BorrowRecord, Annotation } from '../features/members/members.types';
 
-export { useMember, useAdmin, useContent, useSystem, useAnnotations, useSocial, useBookClubs, useClubChat };
+export { useMember, useAdmin, useContent, useSystem, useAnnotations, useSocial, useBookClubs, useClubChat, useInteractions };
 export type { Book, BorrowRecord, Annotation };
 
 /**

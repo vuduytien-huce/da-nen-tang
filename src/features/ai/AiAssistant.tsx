@@ -18,6 +18,8 @@ import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ai } from '../../core/ai';
 
+import { useTranslation } from 'react-i18next';
+
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 interface Message {
@@ -28,16 +30,29 @@ interface Message {
 }
 
 export const AiAssistant = () => {
+  const { t, i18n } = useTranslation();
   const [isVisible, setIsVisible] = useState(false);
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<Message[]>([
     { 
       id: '1', 
-      text: 'Xin chào! Tôi là BiblioAI. Tôi có thể giúp gì cho hành trình đọc sách của bạn hôm nay?', 
+      text: t('ai.welcome_msg', 'Xin chào! Tôi là BiblioAI. Tôi có thể giúp gì cho hành trình đọc sách của bạn hôm nay?'), 
       sender: 'ai', 
       timestamp: new Date() 
     }
   ]);
+
+  useEffect(() => {
+    setMessages([
+      {
+        id: '1',
+        text: t('ai.welcome_msg', 'Xin chào! Tôi là BiblioAI. Tôi có thể giúp gì cho hành trình đọc sách của bạn hôm nay?'),
+        sender: 'ai',
+        timestamp: new Date()
+      }
+    ]);
+  }, [i18n.language]);
+
   const [loading, setLoading] = useState(false);
   
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -90,20 +105,24 @@ export const AiAssistant = () => {
 
   return (
     <>
-      {/* Floating Button */}
       <Animated.View style={[styles.fabContainer, { transform: [{ scale: pulseAnim }] }]}>
-        <TouchableOpacity 
-          style={styles.fab} 
-          onPress={() => setIsVisible(true)}
-          activeOpacity={0.8}
-        >
-          <LinearGradient
-            colors={['#3A75F2', '#1E2540']}
-            style={styles.fabGradient}
+        <View style={styles.fabRow}>
+          <View style={styles.fabLabelContainer}>
+            <Text style={styles.fabLabel}>{t('ai.ask_assistant', 'Hỏi Trợ lý')}</Text>
+          </View>
+          <TouchableOpacity 
+            style={styles.fab} 
+            onPress={() => setIsVisible(true)}
+            activeOpacity={0.8}
           >
-            <Ionicons name="sparkles" size={24} color="#FFFFFF" />
-          </LinearGradient>
-        </TouchableOpacity>
+            <LinearGradient
+              colors={['#3A75F2', '#1E2540']}
+              style={styles.fabGradient}
+            >
+              <Ionicons name="sparkles" size={20} color="#FFFFFF" />
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
       </Animated.View>
 
       {/* Chat Modal */}
@@ -127,7 +146,7 @@ export const AiAssistant = () => {
                   </View>
                   <View>
                     <Text style={styles.headerTitle}>BiblioAI</Text>
-                    <Text style={styles.headerStatus}>Trực tuyến</Text>
+                    <Text style={styles.headerStatus}>{t('ai.online', 'Trực tuyến')}</Text>
                   </View>
                 </View>
                 <TouchableOpacity onPress={() => setIsVisible(false)} style={styles.closeBtn}>
@@ -179,7 +198,7 @@ export const AiAssistant = () => {
               <View style={styles.inputArea}>
                 <TextInput
                   style={styles.input}
-                  placeholder="Nhập câu hỏi cho thủ thư..."
+                  placeholder={t('ai.placeholder', 'Nhập câu hỏi cho thủ thư...')}
                   placeholderTextColor="#5A5F7A"
                   value={input}
                   onChangeText={setInput}
@@ -204,14 +223,32 @@ export const AiAssistant = () => {
 const styles = StyleSheet.create({
   fabContainer: {
     position: 'absolute',
-    bottom: 90,
+    bottom: 100,
     right: 20,
     zIndex: 999,
   },
+  fabRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  fabLabelContainer: {
+    backgroundColor: 'rgba(31, 38, 59, 0.9)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#3A75F2',
+  },
+  fabLabel: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '600',
+  },
   fab: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     elevation: 8,
     shadowColor: '#3A75F2',
     shadowOffset: { width: 0, height: 4 },
@@ -221,7 +258,7 @@ const styles = StyleSheet.create({
   fabGradient: {
     width: '100%',
     height: '100%',
-    borderRadius: 30,
+    borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
   },

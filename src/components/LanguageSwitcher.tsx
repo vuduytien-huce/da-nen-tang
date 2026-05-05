@@ -5,6 +5,7 @@ import { haptics } from '../core/haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '../store/useAuthStore';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export const LanguageSwitcher = () => {
   const { i18n } = useTranslation();
@@ -14,10 +15,11 @@ export const LanguageSwitcher = () => {
   const currentLang = i18n.language;
   const isVi = currentLang === 'vi';
 
-  const toggleLanguage = () => {
+  const toggleLanguage = async () => {
     haptics.light();
     const nextLang = isVi ? 'en' : 'vi';
-    i18n.changeLanguage(nextLang);
+    await i18n.changeLanguage(nextLang);
+    await AsyncStorage.setItem('user-language', nextLang);
     updateLocale(nextLang);
   };
 
@@ -40,10 +42,11 @@ export const LanguageMenuToggle = () => {
   const currentLang = i18n.language;
   const isVi = currentLang === 'vi';
 
-  const toggleLanguage = () => {
+  const toggleLanguage = async () => {
     haptics.light();
     const nextLang = isVi ? 'en' : 'vi';
-    i18n.changeLanguage(nextLang);
+    await i18n.changeLanguage(nextLang);
+    await AsyncStorage.setItem('user-language', nextLang);
     updateLocale(nextLang);
   };
 
@@ -63,6 +66,7 @@ export const LanguageMenuToggle = () => {
     </TouchableOpacity>
   );
 };
+
 
 
 

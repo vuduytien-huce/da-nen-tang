@@ -405,9 +405,9 @@ export const membersService = {
   async getInteractions(userId: string, itemId: string, itemType: string) {
     const { data, error } = await supabase
       .from("user_interactions")
-      .select("interaction_type")
+      .select("*")
       .eq("user_id", userId)
-      .eq("item_id", itemId)
+      .eq("item_id", String(itemId))
       .eq("item_type", itemType);
     if (error) throw error;
     return data || [];
@@ -416,34 +416,54 @@ export const membersService = {
   async toggleInteraction(
     userId: string,
     itemId: string,
-    itemType: string,
-    type: string,
+    itemType: "BOOK" | "AUDIOBOOK",
+    type: "LIKE" | "BOOKMARK" | "COMPLETED",
     currentState: boolean,
   ) {
+    console.log(`[membersService] toggleInteraction: userId=${userId}, itemId=${itemId}, itemType=${itemType}, type=${type}, currentState=${currentState}`);
+    
+    if (!userId || userId === "undefined" || userId === null) return;
+    if (!itemId) return;
+
     try {
-      if (currentState) {
+      // Check current database state to ensure we are in sync
+      const { data: existing } = await supabase
+        .from("user_interactions")
+        .select("id")
+        .eq("user_id", userId)
+        .eq("item_id", String(itemId))
+        .eq("item_type", itemType)
+        .eq("interaction_type", type)
+        .maybeSingle();
+
+      if (existing) {
+        // If it exists, we always remove it when toggling, regardless of what frontend thought
+        console.log(`[membersService] Removing existing ${type}`);
         const { error } = await supabase
           .from("user_interactions")
           .delete()
-          .eq("user_id", userId)
-          .eq("item_id", itemId)
-          .eq("interaction_type", type);
+          .eq("id", existing.id);
+        
         if (error) throw error;
       } else {
+        // If it doesn't exist, we add it
+        console.log(`[membersService] Adding new ${type}`);
         const { error } = await supabase.from("user_interactions").insert({
           user_id: userId,
-          item_id: itemId,
+          item_id: String(itemId),
           item_type: itemType,
           interaction_type: type,
-          created_at: new Date().toISOString()
         });
+        
         if (error) throw error;
       }
     } catch (err: any) {
+      console.error(`[membersService] toggleInteraction exception:`, err);
       if (err.message === "Failed to fetch" || !err.status) {
+        console.warn(`[membersService] Network error, queuing action ${type}`);
         await this.queueAction(type, { userId, itemId, itemType });
       } else {
-        console.error("[membersService] toggleInteraction error:", err.message);
+        throw err;
       }
     }
   },

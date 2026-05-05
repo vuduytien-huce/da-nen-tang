@@ -21,6 +21,8 @@ export default function LibrarianBooks() {
   }, []);
 
   const [modalVisible, setModalVisible] = useState(false);
+  const [marcModalVisible, setMarcModalVisible] = useState(false);
+  const [marcInput, setMarcInput] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [editingBook, setEditingBook] = useState<Book | null>(null);
   const [formData, setFormData] = useState({
@@ -35,14 +37,19 @@ export default function LibrarianBooks() {
     language: '',
     average_rating: '0',
     edition: '',
-    appendix: ''
+    appendix: '',
+    title_en: '',
+    title_vi: '',
+    description_en: '',
+    description_vi: ''
   });
 
   const resetForm = () => {
     setFormData({ 
       title: '', author: '', isbn: '', total_copies: '1', cover_url: '',
       published_date: '', category: '', description: '',
-      language: '', average_rating: '0', edition: '', appendix: ''
+      language: '', average_rating: '0', edition: '', appendix: '',
+      title_en: '', title_vi: '', description_en: '', description_vi: ''
     });
     setEditingBook(null);
   };
@@ -61,7 +68,11 @@ export default function LibrarianBooks() {
       language: book.language || '',
       average_rating: book.average_rating ? String(book.average_rating) : '0',
       edition: book.edition || '',
-      appendix: book.appendix || ''
+      appendix: book.appendix || '',
+      title_en: book.title_en || '',
+      title_vi: book.title_vi || '',
+      description_en: book.description_en || '',
+      description_vi: book.description_vi || ''
     });
     setModalVisible(true);
   };
@@ -83,6 +94,10 @@ export default function LibrarianBooks() {
         average_rating: parseFloat(formData.average_rating) || null,
         edition: formData.edition || null,
         appendix: formData.appendix || null,
+        title_en: formData.title_en || null,
+        title_vi: formData.title_vi || null,
+        description_en: formData.description_en || null,
+        description_vi: formData.description_vi || null,
       };
 
       if (editingBook) {
@@ -105,7 +120,7 @@ export default function LibrarianBooks() {
     },
     onSuccess: () => {
       if (!isMounted) return;
-      Alert.alert(t('common.success'), editingBook ? t('messages.book_updated') || 'Đã cập nhật sách' : t('messages.book_added'));
+      Alert.alert(t('common.success'), editingBook ? t('messages.book_updated') : t('messages.book_added'));
       setModalVisible(false);
       resetForm();
       queryClient.invalidateQueries({ queryKey: ['books'] });
@@ -117,7 +132,7 @@ export default function LibrarianBooks() {
 
   const handleSync = async () => {
     if (!formData.isbn) {
-      Alert.alert(t('common.error'), 'Vui lòng nhập ISBN để đồng bộ');
+      Alert.alert(t('common.error'), t('messages.enter_isbn_sync'));
       return;
     }
     try {
@@ -138,63 +153,44 @@ export default function LibrarianBooks() {
           language: response.data.language || formData.language,
           average_rating: response.data.average_rating ? String(response.data.average_rating) : formData.average_rating,
           edition: response.data.edition || formData.edition,
-          appendix: response.data.appendix || formData.appendix
+          appendix: response.data.appendix || formData.appendix,
+          title_en: response.data.title_en || formData.title_en,
+          title_vi: response.data.title_vi || formData.title_vi,
+          description_en: response.data.description_en || formData.description_en,
+          description_vi: response.data.description_vi || formData.description_vi
         });
-        Alert.alert(t('common.success'), 'Đã đồng bộ thông tin từ các nguồn dữ liệu');
+        Alert.alert(t('common.success'), t('messages.sync_success_sources'));
       }
     } catch (err: any) {
-      if (isMounted) Alert.alert(t('common.error'), 'Không tìm thấy sách hoặc lỗi đồng bộ');
+      if (isMounted) Alert.alert(t('common.error'), t('messages.sync_failed'));
     }
   };
 
-  const handleMarc21Import = async () => {
-    // Simple MARC21 Regex Parser
-    // Tags: 245$a (Title), 100$a (Author), 082$a (DDC), 090$b (Cutter)
-    const runExtract = (text: string | undefined) => {
-      if (!text) return;
-      const titleMatch = text.match(/245.*\$a\s*([^$|\n|/]+)/);
-      const authorMatch = text.match(/100.*\$a\s*([^$|\n]+)/);
-      const ddcMatch = text.match(/082.*\$a\s*(\d+\.?\d*)/);
-      const cutterMatch = text.match(/090.*\$b\s*([A-Z]\d+)/);
+  const runExtract = (text: string | undefined) => {
+    if (!text) return;
+    const titleMatch = text.match(/245.*\$a\s*([^$|\n|/]+)/);
+    const authorMatch = text.match(/100.*\$a\s*([^$|\n]+)/);
+    const ddcMatch = text.match(/082.*\$a\s*(\d+\.?\d*)/);
+    const cutterMatch = text.match(/090.*\$b\s*([A-Z]\d+)/);
 
-      if (isMounted) {
-        setFormData({
-          ...formData,
-          title: titleMatch ? titleMatch[1].trim() : formData.title,
-          author: authorMatch ? authorMatch[1].trim() : formData.author,
-          appendix: `DDC: ${ddcMatch ? ddcMatch[1] : 'N/A'}\nCutter: ${cutterMatch ? cutterMatch[1] : 'N/A'}`
-        });
-        if (Platform.OS === 'web') {
-          window.alert("Đã trích xuất metadata từ MARC21");
-        } else {
-          Alert.alert("Thành công", "Đã trích xuất metadata từ MARC21");
-        }
-      }
-    };
-
-    if (Platform.OS === 'web') {
-      const text = window.prompt("Dán văn bản MARC21 (định dạng mnemonic) vào đây để trích xuất metadata.");
-      if (text !== null && text.trim() !== '') {
-        runExtract(text);
-      }
-    } else if (Alert.prompt) {
-      Alert.prompt(
-        "Dán nội dung MARC21",
-        "Dán văn bản MARC21 (định dạng mnemonic) vào đây để trích xuất metadata.",
-        [
-          { text: "Hủy", style: "cancel" },
-          { 
-            text: "Trích xuất", 
-            onPress: (text: string | undefined) => runExtract(text)
-          }
-        ]
-      );
-    } else {
-      const text = window.prompt ? window.prompt("Dán văn bản MARC21 (định dạng mnemonic) vào đây để trích xuất metadata.") : null;
-      if (text !== null && text.trim() !== '') {
-        runExtract(text);
+    if (isMounted) {
+      setFormData({
+        ...formData,
+        title: titleMatch ? titleMatch[1].trim() : formData.title,
+        author: authorMatch ? authorMatch[1].trim() : formData.author,
+        appendix: `DDC: ${ddcMatch ? ddcMatch[1] : 'N/A'}\nCutter: ${cutterMatch ? cutterMatch[1] : 'N/A'}`
+      });
+      if (Platform.OS === 'web') {
+        window.alert(t('messages.extracted_marc21'));
+      } else {
+        Alert.alert(t('common.success'), t('messages.extracted_marc21'));
       }
     }
+  };
+
+  const handleMarc21Import = () => {
+    setMarcInput('');
+    setMarcModalVisible(true);
   };
 
   const adjustCopies = (amount: number) => {
@@ -231,7 +227,7 @@ export default function LibrarianBooks() {
           <TextInput
             value={searchQuery}
             onChangeText={setSearchQuery}
-            placeholder="Tìm theo tên, tác giả, tóm tắt..."
+            placeholder={t('audiobooks.search_placeholder')}
             placeholderTextColor="#5A5F7A"
             style={styles.searchInput}
           />
@@ -303,7 +299,7 @@ export default function LibrarianBooks() {
                 </View>
 
                 {/* Basic Info */}
-                <Text style={styles.fieldLabel}>TIÊU ĐỀ SÁCH</Text>
+                <Text style={styles.fieldLabel}>{t('common.book_title', 'Tiêu đề sách').toUpperCase()}</Text>
                 <TextInput
                   value={formData.title}
                   onChangeText={(val) => setFormData({ ...formData, title: val })}
@@ -312,7 +308,7 @@ export default function LibrarianBooks() {
                   style={styles.textInput}
                 />
 
-                <Text style={styles.fieldLabel}>TÁC GIẢ</Text>
+                <Text style={styles.fieldLabel}>{t('common.author', 'Tác giả').toUpperCase()}</Text>
                 <TextInput
                   value={formData.author}
                   onChangeText={(val) => setFormData({ ...formData, author: val })}
@@ -348,7 +344,7 @@ export default function LibrarianBooks() {
                 {/* Advanced Metadata */}
                 <View style={styles.row}>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.fieldLabel}>NĂM XUẤT BẢN</Text>
+                    <Text style={styles.fieldLabel}>{t('common.published_date', 'Năm xuất bản').toUpperCase()}</Text>
                     <TextInput
                       value={formData.published_date}
                       onChangeText={(val) => setFormData({ ...formData, published_date: val })}
@@ -358,7 +354,7 @@ export default function LibrarianBooks() {
                     />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.fieldLabel}>NGÔN NGỮ</Text>
+                    <Text style={styles.fieldLabel}>{t('common.language', 'Ngôn ngữ').toUpperCase()}</Text>
                     <TextInput
                       value={formData.language}
                       onChangeText={(val) => setFormData({ ...formData, language: val })}
@@ -369,7 +365,7 @@ export default function LibrarianBooks() {
                   </View>
                 </View>
 
-                <Text style={styles.fieldLabel}>THỂ LOẠI</Text>
+                <Text style={styles.fieldLabel}>{t('common.category', 'Thể loại').toUpperCase()}</Text>
                 <TextInput
                   value={formData.category}
                   onChangeText={(val) => setFormData({ ...formData, category: val })}
@@ -378,7 +374,7 @@ export default function LibrarianBooks() {
                   style={styles.textInput}
                 />
 
-                <Text style={styles.fieldLabel}>BẢN TÓM TẮT</Text>
+                <Text style={styles.fieldLabel}>{t('common.description', 'Bản tóm tắt').toUpperCase()}</Text>
                 <TextInput
                   value={formData.description}
                   onChangeText={(val) => setFormData({ ...formData, description: val })}
@@ -388,7 +384,7 @@ export default function LibrarianBooks() {
                   style={[styles.textInput, { height: 80, textAlignVertical: 'top' }]}
                 />
 
-                <Text style={styles.fieldLabel}>PHỤ LỤC (TABLE OF CONTENTS)</Text>
+                <Text style={styles.fieldLabel}>{t('common.appendix', 'Phụ lục').toUpperCase()}</Text>
                 <TextInput
                   value={formData.appendix}
                   onChangeText={(val) => setFormData({ ...formData, appendix: val })}
@@ -409,6 +405,52 @@ export default function LibrarianBooks() {
                 </TouchableOpacity>
               </View>
             </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* MARC21 Import Modal */}
+      <Modal visible={marcModalVisible} transparent animationType="fade">
+        <View style={styles.marcOverlay}>
+          <View style={styles.marcContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>{t('librarian.paste_marc21', 'Dán nội dung MARC21')}</Text>
+              <TouchableOpacity onPress={() => setMarcModalVisible(false)}>
+                <Ionicons name="close" size={24} color="#8B8FA3" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.marcInputContainer}>
+              <TextInput
+                style={styles.marcTextInput}
+                value={marcInput}
+                onChangeText={setMarcInput}
+                multiline
+                numberOfLines={6}
+                placeholder={t('librarian.marc21_placeholder', 'Dán văn bản MARC21 (định dạng mnemonic) vào đây...')}
+                placeholderTextColor="#5A5F7A"
+              />
+            </View>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                onPress={() => setMarcModalVisible(false)}
+                style={[styles.modalBtn, styles.cancelBtn]}
+              >
+                <Text style={styles.cancelBtnText}>{t('common.cancel')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => {
+                  if (marcInput.trim() !== '') {
+                    runExtract(marcInput.trim());
+                    setMarcModalVisible(false);
+                  }
+                }}
+                style={[styles.modalBtn, styles.submitBtn]}
+              >
+                <Text style={styles.marcSubmitBtnText}>{t('common.extract', 'Trích xuất')}</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
@@ -461,5 +503,61 @@ const styles = StyleSheet.create({
     marginLeft: 12,
     color: '#FFFFFF',
     fontSize: 15,
+  },
+  marcOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  marcContent: {
+    backgroundColor: '#151929',
+    width: '100%',
+    maxWidth: 450,
+    borderRadius: 24,
+    padding: 24,
+    borderWidth: 1,
+    borderColor: '#2E3654',
+  },
+  marcInputContainer: {
+    backgroundColor: '#0B0F1A',
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: '#1E2540',
+    marginBottom: 24,
+    minHeight: 120,
+  },
+  marcTextInput: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    lineHeight: 20,
+    textAlignVertical: 'top',
+  },
+  modalActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  modalBtn: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelBtn: {
+    backgroundColor: '#1E2540',
+  },
+  cancelBtnText: {
+    color: '#8B8FA3',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  marcSubmitBtnText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });

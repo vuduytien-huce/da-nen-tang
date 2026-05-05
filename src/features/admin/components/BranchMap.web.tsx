@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, Text, ActivityIndicator, ScrollView, Platform } from 'react-native';
 import { supabase } from '@/src/api/supabase';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 
 interface Branch {
   id: string;
@@ -13,8 +14,21 @@ interface Branch {
 }
 
 export const BranchMap = () => {
+  const { t } = useTranslation();
   const [branches, setBranches] = useState<Branch[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const getBranchDisplayName = (name: string) => {
+    if (!name) return '';
+    const lower = name.toLowerCase();
+    if (lower.includes('south') || lower.includes('miền nam') || lower.includes('hồ chí minh') || lower.includes('hcm')) {
+      return t('admin.branch_south', 'South Branch - TP.HCM');
+    }
+    if (lower.includes('main') || lower.includes('chính') || lower.includes('hà nội') || lower.includes('hn')) {
+      return t('admin.branch_main', 'Main Branch - Hà Nội');
+    }
+    return name;
+  };
 
   useEffect(() => {
     fetchBranches();
@@ -70,7 +84,7 @@ export const BranchMap = () => {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#3A75F2" />
-        <Text style={styles.loadingText}>Đang tải danh sách chi nhánh...</Text>
+        <Text style={styles.loadingText}>{t('admin.loading_branch_list', 'Đang tải danh sách chi nhánh...')}</Text>
       </View>
     );
   }
@@ -79,18 +93,22 @@ export const BranchMap = () => {
     <View style={styles.container}>
       <View style={styles.webHeader}>
         <Ionicons name="map-outline" size={20} color="#3A75F2" />
-        <Text style={styles.webTitle}>Trạng thái Tồn kho Chi nhánh</Text>
+        <Text style={styles.webTitle}>{t('admin.branch_inventory_status', 'Trạng thái Tồn kho Chi nhánh')}</Text>
       </View>
       
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.scrollArea}>
         {branches.map((branch) => (
           <View key={branch.id} style={styles.branchCard}>
             <View style={[styles.healthIndicator, { backgroundColor: getMarkerColor(branch.inventory_health || 'high') }]} />
-            <Text style={styles.branchName} numberOfLines={1}>{branch.name}</Text>
+            <Text style={styles.branchName} numberOfLines={1}>{getBranchDisplayName(branch.name)}</Text>
             <Text style={styles.branchLocation} numberOfLines={1}>{branch.location}</Text>
             <View style={styles.statusBadge}>
               <Text style={[styles.statusText, { color: getMarkerColor(branch.inventory_health || 'high') }]}>
-                {branch.inventory_health === 'low' ? 'Cảnh báo: Thấp' : branch.inventory_health === 'medium' ? 'Trung bình' : 'Tốt'}
+                {branch.inventory_health === 'low'
+                  ? t('admin.status_low', 'Cảnh báo: Thấp')
+                  : branch.inventory_health === 'medium'
+                  ? t('admin.status_medium', 'Trung bình')
+                  : t('admin.status_good', 'Tốt')}
               </Text>
             </View>
           </View>
@@ -101,15 +119,15 @@ export const BranchMap = () => {
       <View style={styles.legend}>
         <View style={styles.legendItem}>
           <View style={[styles.dot, { backgroundColor: '#10B981' }]} />
-          <Text style={styles.legendText}>Tốt</Text>
+          <Text style={styles.legendText}>{t('admin.inventory_good', 'Tốt')}</Text>
         </View>
         <View style={styles.legendItem}>
           <View style={[styles.dot, { backgroundColor: '#F59E0B' }]} />
-          <Text style={styles.legendText}>Cảnh báo</Text>
+          <Text style={styles.legendText}>{t('admin.inventory_warning', 'Cảnh báo')}</Text>
         </View>
         <View style={styles.legendItem}>
           <View style={[styles.dot, { backgroundColor: '#EF4444' }]} />
-          <Text style={styles.legendText}>Nguy cấp</Text>
+          <Text style={styles.legendText}>{t('admin.inventory_critical', 'Nguy cấp')}</Text>
         </View>
       </View>
     </View>

@@ -14,7 +14,13 @@ export interface Book {
   average_rating?: number;
   ratings_count?: number;
   edition?: string;
+  title_en?: string;
+  title_vi?: string;
+  description_en?: string;
+  description_vi?: string;
   appendix?: string;
+  author_en?: string;
+  author_vi?: string;
 }
 
 export interface BorrowRecord {

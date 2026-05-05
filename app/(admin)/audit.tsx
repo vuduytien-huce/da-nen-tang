@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { enUS, vi } from 'date-fns/locale';
 import { BlurView } from 'expo-blur';
@@ -40,27 +40,30 @@ export default function AuditLogsScreen() {
   const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
 
   const {
-    data: logs,
+    data: allLogs,
     isLoading,
     refetch,
   } = useQuery<AuditLog[]>({
-    queryKey: ['audit_logs', filter],
+    queryKey: ['audit_logs_all'],
     queryFn: async () => {
-      let query = supabase
+      const { data, error } = await supabase
         .from('audit_logs')
         .select('*, profiles:changed_by(fullName:full_name, role)')
         .order('created_at', { ascending: false })
         .limit(100);
 
-      if (filter) {
-        query = query.eq('action', filter);
-      }
-
-      const { data, error } = await query;
       if (error) throw error;
       return data || [];
     },
+    staleTime: 5000,
+    gcTime: 5 * 60 * 1000,
   });
+
+  const logs = React.useMemo(() => {
+    if (!allLogs) return [];
+    if (!filter) return allLogs;
+    return allLogs.filter((log) => log.action === filter);
+  }, [allLogs, filter]);
 
   const getActionColor = (action: string) => {
     switch (action) {

@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
     Alert,
     KeyboardAvoidingView,
@@ -16,6 +17,7 @@ import { signInWithOAuthProvider } from "../../src/auth/oauth";
 
 export default function SignupScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -25,7 +27,7 @@ export default function SignupScreen() {
 
   const handleSignup = async () => {
     if (!fullName || !email || !password) {
-      Alert.alert("Lỗi", "Vui lòng nhập đầy đủ họ tên, email và mật khẩu");
+      Alert.alert(t("common.error", "Lỗi"), t("auth.fill_all", "Vui lòng nhập đầy đủ họ tên, email và mật khẩu"));
       return;
     }
 
@@ -44,19 +46,19 @@ export default function SignupScreen() {
 
       if (error) throw error;
       
-      const successMsg = "Đăng ký thành công! Hãy quay lại trang đăng nhập để tiếp tục.";
+      const successMsg = t("auth.signup_success_msg", "Đăng ký thành công! Hãy quay lại trang đăng nhập để tiếp tục.");
       if (Platform.OS === "web") {
         window.alert(successMsg);
         router.push("/(auth)/login");
       } else {
-        Alert.alert("Thành công", successMsg, [{ text: "Quay về Đăng nhập", onPress: () => router.push("/(auth)/login") }]);
+        Alert.alert(t("common.success", "Thành công"), successMsg, [{ text: t("auth.back_to_login", "Quay về Đăng nhập"), onPress: () => router.push("/(auth)/login") }]);
       }
     } catch (error: any) {
       console.error("Lỗi đăng ký:", error.message);
       if (Platform.OS === "web") {
-        window.alert("Đăng ký thất bại: " + error.message);
+        window.alert(t("auth.signup_failed", "Đăng ký thất bại") + ": " + error.message);
       } else {
-        Alert.alert("Đăng ký thất bại", error.message);
+        Alert.alert(t("auth.signup_failed", "Đăng ký thất bại"), error.message);
       }
     } finally {
       setLoading(false);
@@ -71,11 +73,11 @@ export default function SignupScreen() {
       await signInWithOAuthProvider(provider);
       const providerLabel = provider === "google" ? "Google" : "GitHub";
       Alert.alert(
-        "Thành công",
-        `Đã mở đăng ký với ${providerLabel}. Hoàn tất xác thực để tiếp tục.`,
+        t("common.success", "Thành công"),
+        t("auth.oauth_signup_redirect", "Đã mở đăng ký với {{providerLabel}}. Hoàn tất xác thực để tiếp tục.", { providerLabel }),
       );
     } catch (error: any) {
-      Alert.alert("Đăng ký thất bại", error.message);
+      Alert.alert(t("auth.signup_failed", "Đăng ký thất bại"), error.message);
     } finally {
       setLoading(false);
     }
@@ -100,10 +102,10 @@ export default function SignupScreen() {
         {/* Title */}
         <View style={{ marginBottom: 32 }}>
           <Text style={{ color: "#FFFFFF", fontSize: 28, fontWeight: "700", lineHeight: 34 }}>
-            Tạo tài khoản mới
+            {t("auth.create_account", "Tạo tài khoản mới")}
           </Text>
           <Text style={{ color: "#8B8FA3", fontSize: 15, marginTop: 8, lineHeight: 22 }}>
-            Bắt đầu hành trình đọc sách của bạn
+            {t("auth.signup_sub", "Bắt đầu hành trình đọc sách của bạn")}
           </Text>
         </View>
 
@@ -112,7 +114,7 @@ export default function SignupScreen() {
           {/* Full Name */}
           <View>
             <Text style={{ color: "#8B8FA3", fontSize: 12, fontWeight: "600", letterSpacing: 1.2, marginBottom: 8, textTransform: "uppercase" }}>
-              HỌ VÀ TÊN
+              {t("profile.full_name", "Họ và tên")}
             </Text>
             <View style={{
               flexDirection: "row", alignItems: "center",
@@ -134,7 +136,7 @@ export default function SignupScreen() {
           {/* Email */}
           <View>
             <Text style={{ color: "#8B8FA3", fontSize: 12, fontWeight: "600", letterSpacing: 1.2, marginBottom: 8, textTransform: "uppercase" }}>
-              EMAIL
+              {t("auth.email", "Email")}
             </Text>
             <View style={{
               flexDirection: "row", alignItems: "center",
@@ -161,7 +163,7 @@ export default function SignupScreen() {
           {/* Password */}
           <View>
             <Text style={{ color: "#8B8FA3", fontSize: 12, fontWeight: "600", letterSpacing: 1.2, marginBottom: 8, textTransform: "uppercase" }}>
-              MẬT KHẨU
+              {t("auth.password", "Mật khẩu")}
             </Text>
             <View style={{
               flexDirection: "row", alignItems: "center",
@@ -191,7 +193,7 @@ export default function SignupScreen() {
           {/* Registration Code (Optional) */}
           <View>
             <Text style={{ color: "#8B8FA3", fontSize: 12, fontWeight: "600", letterSpacing: 1.2, marginBottom: 8, textTransform: "uppercase" }}>
-              MÃ ĐĂNG KÝ (TÙY CHỌN YÊU CẦU QUYỀN)
+              {t("auth.reg_code_optional", "Mã đăng ký (Tùy chọn yêu cầu quyền)")}
             </Text>
             <View style={{
               flexDirection: "row", alignItems: "center",
@@ -202,7 +204,7 @@ export default function SignupScreen() {
               <Ionicons name="key-outline" size={18} color="#5A5F7A" />
               <TextInput
                 style={{ flex: 1, marginLeft: 12, color: "#FFFFFF", fontSize: 15 }}
-                placeholder="Nhập mã nếu bạn là Quản trị/Thủ thư"
+                placeholder={t("auth.reg_code_placeholder", "Nhập mã nếu bạn là Quản trị/Thủ thư")}
                 placeholderTextColor="#3D4260"
                 autoCapitalize="none"
                 secureTextEntry
@@ -228,7 +230,7 @@ export default function SignupScreen() {
           activeOpacity={0.8}
         >
           <Text style={{ color: "#FFFFFF", fontSize: 16, fontWeight: "700" }}>
-            {loading ? "Đang đăng ký..." : "Đăng ký tài khoản"}
+            {loading ? t("common.processing", "Đang đăng ký...") : t("auth.register_account", "Đăng ký tài khoản")}
           </Text>
         </TouchableOpacity>
 
@@ -236,7 +238,7 @@ export default function SignupScreen() {
         <View style={{ flexDirection: "row", alignItems: "center", marginVertical: 28 }}>
           <View style={{ flex: 1, height: 1, backgroundColor: "#1E2540" }} />
           <Text style={{ marginHorizontal: 16, color: "#5A5F7A", fontSize: 13 }}>
-            Hoặc tiếp tục với
+            {t("auth.or_continue", "Hoặc tiếp tục với")}
           </Text>
           <View style={{ flex: 1, height: 1, backgroundColor: "#1E2540" }} />
         </View>
@@ -290,9 +292,9 @@ export default function SignupScreen() {
 
         {/* Footer */}
         <View style={{ marginTop: "auto", paddingTop: 32, flexDirection: "row", justifyContent: "center", alignItems: "center" }}>
-          <Text style={{ color: "#5A5F7A", fontSize: 14 }}>Đã có tài khoản? </Text>
+          <Text style={{ color: "#5A5F7A", fontSize: 14 }}>{t("auth.already_have_account", "Đã có tài khoản? ")}</Text>
           <TouchableOpacity onPress={() => router.push("/(auth)/login")}>
-            <Text style={{ color: "#4F8EF7", fontSize: 14, fontWeight: "700" }}>Đăng nhập</Text>
+            <Text style={{ color: "#4F8EF7", fontSize: 14, fontWeight: "700" }}>{t("auth.login_cta", "Đăng nhập")}</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>

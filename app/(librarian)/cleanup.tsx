@@ -6,6 +6,7 @@ import { supabase } from '@/src/api/supabase';
 import { BookItem } from '@/src/features/books/components/BookItem';
 import { Book } from '@/src/hooks/library/types';
 import { useTranslation } from 'react-i18next';
+import { router } from 'expo-router';
 
 export default function BookCleanup() {
   const { t } = useTranslation();
@@ -127,7 +128,12 @@ export default function BookCleanup() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>{t('cleanup.title')}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+            <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+          <Text style={styles.title}>{t('cleanup.title')}</Text>
+        </View>
         <View style={{ flexDirection: 'row', gap: 10 }}>
           <TouchableOpacity onPress={handleSystemCleanup} style={[styles.autoBtn, { backgroundColor: '#10B981' }]}>
             <Ionicons name="sparkles" size={18} color="#FFFFFF" />
@@ -199,6 +205,7 @@ export default function BookCleanup() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0B0F1A' },
+  backBtn: { padding: 4 },
   header: { 
     flexDirection: 'row', 
     justifyContent: 'space-between', 

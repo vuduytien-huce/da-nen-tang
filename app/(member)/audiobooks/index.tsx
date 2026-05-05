@@ -1,23 +1,71 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, TextInput, ActivityIndicator, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import { useLibrary } from '../../../src/hooks/useLibrary';
+import { useRouter, useFocusEffect } from 'expo-router';
+import { useLibrary, useInteractions } from '../../../src/hooks/useLibrary';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown } from 'react-native-reanimated';
+import { useTranslation } from 'react-i18next';
+
+import { supabase } from '../../../src/api/supabase';
+import { useAuthStore } from '../../../src/store/useAuthStore';
 
 const { width } = Dimensions.get('window');
 
 export default function AudiobookCatalog() {
   const router = useRouter();
+  const { t, i18n } = useTranslation();
   const { audiobooks } = useLibrary();
   const { data: books, isLoading } = audiobooks.list();
   const [searchQuery, setSearchQuery] = useState('');
+  const { profile } = useAuthStore();
+  const { data: interactions = [], refetch: refetchInteractions } = useInteractions(profile?.id, 'AUDIOBOOK');
+  const [activeTab, setActiveTab] = useState<'ALL' | 'SAVED' | 'LIKED'>('ALL');
 
-  const filteredBooks = books?.filter(b => 
-    b.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    b.author?.toLowerCase().includes(searchQuery.toLowerCase())
+  useFocusEffect(
+    useCallback(() => {
+      refetchInteractions();
+    }, [refetchInteractions])
   );
+
+  const filteredBooks = books?.filter(b => {
+    const matchesSearch = b.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                          b.author?.toLowerCase().includes(searchQuery.toLowerCase());
+    if (!matchesSearch) return false;
+
+    if (activeTab === 'SAVED') {
+       return interactions.some(i => String(i.item_id) === String(b.id) && i.interaction_type === 'BOOKMARK');
+    }
+    if (activeTab === 'LIKED') {
+       return interactions.some(i => String(i.item_id) === String(b.id) && i.interaction_type === 'LIKE');
+    }
+    return true;
+  });
+
+  const getLocalizedDuration = (dur?: string) => {
+    if (!dur) return '24:00';
+    return dur
+      .replace(/giờ/g, t("audiobooks.hours", "hours"))
+      .replace(/phút/g, t("audiobooks.minutes", "minutes"));
+  };
+
+  const getLocalizedTitle = (book: any) => {
+    let title = i18n.language === 'en' ? (book.title_en || book.title) : (book.title_vi || book.title);
+    
+    // Add language suffix if system is English and book is in Vietnamese
+    if (i18n.language === 'en' && book.language === 'vi') {
+      title += ` (${t("audiobooks.audio_vietnamese", "Audio Vietnamese")})`;
+    }
+    
+    return title;
+  };
+
+  const getLocalizedAuthor = (book: any) => {
+    if (i18n.language === 'en') {
+      return book.author_en || book.canonical_author || book.author;
+    }
+    return book.author_vi || book.canonical_author || book.author;
+  };
 
   return (
     <View style={styles.container}>
@@ -26,8 +74,8 @@ export default function AudiobookCatalog() {
           <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
         </TouchableOpacity>
         <View>
-          <Text style={styles.title}>Audiobooks</Text>
-          <Text style={styles.subtitle}>Nghe sách mọi lúc, mọi nơi</Text>
+          <Text style={styles.title}>{t("audiobooks.title", "Audiobooks")}</Text>
+          <Text style={styles.subtitle}>{t("audiobooks.subtitle", "Nghe sách mọi lúc, mọi nơi")}</Text>
         </View>
       </View>
 
@@ -35,11 +83,32 @@ export default function AudiobookCatalog() {
         <Ionicons name="search" size={20} color="#5A5F7A" style={{ marginLeft: 16 }} />
         <TextInput
           style={styles.searchInput}
-          placeholder="Tìm sách nói..."
+          placeholder={t("audiobooks.search_placeholder", "Tìm sách nói...")}
           placeholderTextColor="#5A5F7A"
           value={searchQuery}
           onChangeText={setSearchQuery}
         />
+      </View>
+
+      <View style={styles.filterTabs}>
+        <TouchableOpacity 
+          style={[styles.filterTab, activeTab === 'ALL' && styles.activeTab]} 
+          onPress={() => setActiveTab('ALL')}
+        >
+          <Text style={[styles.filterText, activeTab === 'ALL' && styles.activeText]}>{t("audiobooks.filter_all", "Tất cả")}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={[styles.filterTab, activeTab === 'SAVED' && styles.activeTab]} 
+          onPress={() => setActiveTab('SAVED')}
+        >
+          <Text style={[styles.filterText, activeTab === 'SAVED' && styles.activeText]}>{t("audiobooks.filter_saved", "Đã lưu")}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={[styles.filterTab, activeTab === 'LIKED' && styles.activeTab]} 
+          onPress={() => setActiveTab('LIKED')}
+        >
+          <Text style={[styles.filterText, activeTab === 'LIKED' && styles.activeText]}>{t("audiobooks.filter_liked", "Yêu thích")}</Text>
+        </TouchableOpacity>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -57,17 +126,20 @@ export default function AudiobookCatalog() {
                   style={styles.card}
                   onPress={() => router.push(`/(member)/audiobooks/${book.id}` as any)}
                 >
-                  <Image source={book.cover_url ? { uri: book.cover_url } : undefined} style={styles.cover} />
+                  <Image 
+                    source={(book.canonical_cover_url || book.cover_url) ? { uri: book.canonical_cover_url || book.cover_url } : undefined} 
+                    style={styles.cover} 
+                  />
                   <LinearGradient colors={['transparent', 'rgba(0,0,0,0.9)']} style={styles.overlay}>
                     <View style={styles.playIcon}>
                       <Ionicons name="play" size={20} color="#FFFFFF" />
                     </View>
                     <View style={styles.info}>
-                      <Text style={styles.bookTitle} numberOfLines={2}>{book.title}</Text>
-                      <Text style={styles.author} numberOfLines={1}>{book.author}</Text>
+                      <Text style={styles.bookTitle} numberOfLines={2}>{getLocalizedTitle(book)}</Text>
+                      <Text style={styles.author} numberOfLines={1}>{getLocalizedAuthor(book)}</Text>
                       <View style={styles.durationRow}>
                         <Ionicons name="time-outline" size={12} color="#8A8F9E" />
-                        <Text style={styles.durationText}>{book.duration || '24:00'}</Text>
+                        <Text style={styles.durationText}>{getLocalizedDuration(book.duration)}</Text>
                       </View>
                     </View>
                   </LinearGradient>
@@ -99,6 +171,11 @@ const styles = StyleSheet.create({
     marginBottom: 20
   },
   searchInput: { flex: 1, marginLeft: 12, color: '#FFFFFF', fontSize: 16 },
+  filterTabs: { flexDirection: 'row', paddingHorizontal: 24, marginBottom: 16, gap: 10 },
+  filterTab: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: '#151929', borderWidth: 1, borderColor: '#1E2540' },
+  activeTab: { backgroundColor: '#3A75F2', borderColor: '#3A75F2' },
+  filterText: { color: '#8A8F9E', fontSize: 13, fontWeight: '600' },
+  activeText: { color: '#FFFFFF' },
   scrollContent: { paddingHorizontal: 20, paddingBottom: 100 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
   cardWrapper: { width: '48%', marginBottom: 16 },

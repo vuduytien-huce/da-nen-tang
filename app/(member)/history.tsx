@@ -7,9 +7,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { payment } from '../../src/core/payment';
 const { generateVietQR } = payment;
 import { useAuthStore } from '../../src/store/useAuthStore';
+import { useRouter } from 'expo-router';
 
 export default function HistoryPage() {
   const { t } = useTranslation();
+  const router = useRouter();
   const { profile } = useAuthStore();
   const { borrows } = useLibrary();
   const { data: history, isLoading } = borrows.list();
@@ -56,6 +58,14 @@ export default function HistoryPage() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
+        <TouchableOpacity 
+          style={styles.backBtn} 
+          onPress={() => router.back()}
+          accessibilityRole="button"
+          accessibilityLabel={t('common.back')}
+        >
+          <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+        </TouchableOpacity>
         <Text style={styles.title}>{t('member.history_tab')}</Text>
       </View>
 
@@ -136,7 +146,18 @@ export default function HistoryPage() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0B0F1A' },
-  header: { paddingHorizontal: 24, paddingTop: 60, paddingBottom: 24 },
+  header: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    paddingHorizontal: 24, 
+    paddingTop: 60, 
+    paddingBottom: 24,
+    gap: 16
+  },
+  backBtn: {
+    padding: 4,
+    marginRight: 4
+  },
   title: { color: '#FFFFFF', fontSize: 24, fontWeight: '800' },
   list: { paddingHorizontal: 24, paddingBottom: 100 },
   card: { backgroundColor: '#151929', borderRadius: 20, padding: 16, marginBottom: 12, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#1E2540' },

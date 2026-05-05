@@ -29,8 +29,8 @@ export function useLibrarianAnalytics() {
   });
 
   const runIntelligence = useMutation({
-    mutationFn: async () => {
-      const suggestions = await adminService.getAIRedistributionSuggestions();
+    mutationFn: async (lang: string = 'vi') => {
+      const suggestions = await adminService.getAIRedistributionSuggestions(lang);
       // Store suggestions in DB
       if (suggestions && suggestions.length > 0) {
         const { error } = await supabase.from('inventory_suggestions').insert(
@@ -57,6 +57,7 @@ export function useLibrarianAnalytics() {
       const { error } = await supabase.from('inventory_suggestions').insert([
         {
           suggestion_text: 'Nhu cầu sách "Kinh tế học" dự kiến tăng 40% trong tháng tới tại chi nhánh Quận 1.',
+          suggestion_text_en: 'Demand for "Economics" books is expected to increase by 40% next month at District 1 branch.',
           confidence_score: 0.92,
           type: 'PREDICTIVE_HOT',
           metadata: { predicted_demand_increase: '40%', priority: 'HIGH' }

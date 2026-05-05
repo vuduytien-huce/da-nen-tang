@@ -1,18 +1,22 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
-    Alert,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { supabase } from "../../src/api/supabase";
-import { completeAuthSession, signInWithOAuthProvider } from "../../src/auth/oauth";
+import {
+  completeAuthSession,
+  signInWithOAuthProvider,
+} from "../../src/auth/oauth";
 import { useAuthStore } from "../../src/store/useAuthStore";
 
 export default function LoginScreen() {
@@ -20,6 +24,7 @@ export default function LoginScreen() {
   completeAuthSession();
 
   const router = useRouter();
+  const { t } = useTranslation();
   const setSession = useAuthStore((state) => state.setSession);
 
   const [email, setEmail] = useState("");
@@ -29,7 +34,10 @@ export default function LoginScreen() {
 
   const handleLogin = async () => {
     if (!email || !password) {
-      Alert.alert("Lỗi", "Vui lòng nhập đầy đủ email và mật khẩu");
+      Alert.alert(
+        t("common.error", "Lỗi"),
+        t("auth.wrong_creds", "Vui lòng nhập đầy đủ email và mật khẩu"),
+      );
       return;
     }
 
@@ -45,17 +53,23 @@ export default function LoginScreen() {
         await setSession(data.session);
         if (Platform.OS === "web") {
           // React Native Expo Web handles redirection smoothly, but we can log success or alert
-          console.log("Đăng nhập thành công, chờ điều hướng...");
+          console.log("Success! Redirecting...");
         } else {
-          Alert.alert("Thành công", "Đăng nhập thành công. Đang chuyển hướng...");
+          Alert.alert(
+            t("common.success", "Thành công"),
+            t(
+              "auth.welcome_back",
+              "Đăng nhập thành công. Đang chuyển hướng...",
+            ),
+          );
         }
       }
     } catch (error: any) {
-      console.error("Lỗi đăng nhập:", error.message);
+      console.error("Login error:", error.message);
       if (Platform.OS === "web") {
-        window.alert("Đăng nhập thất bại: " + error.message);
+        window.alert(t("common.error", "Lỗi") + ": " + error.message);
       } else {
-        Alert.alert("Đăng nhập thất bại", error.message);
+        Alert.alert(t("common.error", "Lỗi"), error.message);
       }
     } finally {
       setLoading(false);
@@ -100,26 +114,72 @@ export default function LoginScreen() {
       style={{ flex: 1, backgroundColor: "#0B0F1A" }}
     >
       <ScrollView
-        contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 24, paddingVertical: 48 }}
+        contentContainerStyle={{
+          flexGrow: 1,
+          paddingHorizontal: 24,
+          paddingVertical: 48,
+        }}
         keyboardShouldPersistTaps="handled"
       >
         {/* BiblioTech Branding */}
-        <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 40, marginTop: 16 }}>
-          <Text style={{ color: "#4F8EF7", fontSize: 26, fontWeight: "800", fontStyle: "italic", letterSpacing: -0.5 }}>
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            marginBottom: 40,
+            marginTop: 16,
+          }}
+        >
+          <Text
+            style={{
+              color: "#4F8EF7",
+              fontSize: 26,
+              fontWeight: "800",
+              fontStyle: "italic",
+              letterSpacing: -0.5,
+            }}
+          >
             BiblioTech
           </Text>
-          <View style={{ marginLeft: 8, width: 20, height: 20, borderRadius: 10, borderWidth: 1.5, borderColor: "#4F8EF7", alignItems: "center", justifyContent: "center" }}>
-            <Text style={{ color: "#4F8EF7", fontSize: 11, fontWeight: "700" }}>i</Text>
+          <View
+            style={{
+              marginLeft: 8,
+              width: 20,
+              height: 20,
+              borderRadius: 10,
+              borderWidth: 1.5,
+              borderColor: "#4F8EF7",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Text style={{ color: "#4F8EF7", fontSize: 11, fontWeight: "700" }}>
+              i
+            </Text>
           </View>
         </View>
 
         {/* Title */}
         <View style={{ marginBottom: 32 }}>
-          <Text style={{ color: "#FFFFFF", fontSize: 28, fontWeight: "700", lineHeight: 34 }}>
-            Đăng nhập
+          <Text
+            style={{
+              color: "#FFFFFF",
+              fontSize: 28,
+              fontWeight: "700",
+              lineHeight: 34,
+            }}
+          >
+            {t("auth.login", "Đăng nhập")}
           </Text>
-          <Text style={{ color: "#8B8FA3", fontSize: 15, marginTop: 8, lineHeight: 22 }}>
-            Chào mừng bạn trở lại hệ thống thư viện
+          <Text
+            style={{
+              color: "#8B8FA3",
+              fontSize: 15,
+              marginTop: 8,
+              lineHeight: 22,
+            }}
+          >
+            {t("auth.welcome_back", "Chào mừng bạn trở lại hệ thống thư viện")}
           </Text>
         </View>
 
@@ -127,18 +187,38 @@ export default function LoginScreen() {
         <View style={{ gap: 20 }}>
           {/* Email */}
           <View>
-            <Text style={{ color: "#8B8FA3", fontSize: 12, fontWeight: "600", letterSpacing: 1.2, marginBottom: 8, textTransform: "uppercase" }}>
-              EMAIL
+            <Text
+              style={{
+                color: "#8B8FA3",
+                fontSize: 12,
+                fontWeight: "600",
+                letterSpacing: 1.2,
+                marginBottom: 8,
+                textTransform: "uppercase",
+              }}
+            >
+              {t("auth.email", "Email")}
             </Text>
-            <View style={{
-              flexDirection: "row", alignItems: "center",
-              backgroundColor: "#151929", borderRadius: 12,
-              borderWidth: 1, borderColor: "#1E2540",
-              paddingHorizontal: 16, paddingVertical: 14,
-            }}>
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                backgroundColor: "#151929",
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: "#1E2540",
+                paddingHorizontal: 16,
+                paddingVertical: 14,
+              }}
+            >
               <Ionicons name="mail-outline" size={18} color="#5A5F7A" />
               <TextInput
-                style={{ flex: 1, marginLeft: 12, color: "#FFFFFF", fontSize: 15 }}
+                style={{
+                  flex: 1,
+                  marginLeft: 12,
+                  color: "#FFFFFF",
+                  fontSize: 15,
+                }}
                 placeholder="email@bv-du.com"
                 placeholderTextColor="#3D4260"
                 keyboardType="email-address"
@@ -154,18 +234,38 @@ export default function LoginScreen() {
 
           {/* Password */}
           <View>
-            <Text style={{ color: "#8B8FA3", fontSize: 12, fontWeight: "600", letterSpacing: 1.2, marginBottom: 8, textTransform: "uppercase" }}>
-              MẬT KHẨU
+            <Text
+              style={{
+                color: "#8B8FA3",
+                fontSize: 12,
+                fontWeight: "600",
+                letterSpacing: 1.2,
+                marginBottom: 8,
+                textTransform: "uppercase",
+              }}
+            >
+              {t("auth.password", "Mật khẩu")}
             </Text>
-            <View style={{
-              flexDirection: "row", alignItems: "center",
-              backgroundColor: "#151929", borderRadius: 12,
-              borderWidth: 1, borderColor: "#1E2540",
-              paddingHorizontal: 16, paddingVertical: 14,
-            }}>
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                backgroundColor: "#151929",
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: "#1E2540",
+                paddingHorizontal: 16,
+                paddingVertical: 14,
+              }}
+            >
               <Ionicons name="lock-closed-outline" size={18} color="#5A5F7A" />
               <TextInput
-                style={{ flex: 1, marginLeft: 12, color: "#FFFFFF", fontSize: 15 }}
+                style={{
+                  flex: 1,
+                  marginLeft: 12,
+                  color: "#FFFFFF",
+                  fontSize: 15,
+                }}
                 placeholder="••••••••"
                 placeholderTextColor="#3D4260"
                 secureTextEntry={!showPassword}
@@ -186,7 +286,7 @@ export default function LoginScreen() {
         {/* Forgot Password */}
         <TouchableOpacity style={{ alignSelf: "flex-end", marginTop: 12 }}>
           <Text style={{ color: "#4F8EF7", fontSize: 13, fontWeight: "500" }}>
-            Quên mật khẩu?
+            {t("auth.forgot_password", "Quên mật khẩu?")}
           </Text>
         </TouchableOpacity>
 
@@ -205,21 +305,33 @@ export default function LoginScreen() {
           activeOpacity={0.8}
         >
           <Text style={{ color: "#FFFFFF", fontSize: 16, fontWeight: "700" }}>
-            {loading ? "Đang xử lý..." : "Đăng nhập"}
+            {loading
+              ? t("common.loading", "Đang xử lý...")
+              : t("auth.login", "Đăng nhập")}
           </Text>
         </TouchableOpacity>
 
         {/* Divider */}
-        <View style={{ flexDirection: "row", alignItems: "center", marginVertical: 28 }}>
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            marginVertical: 28,
+          }}
+        >
           <View style={{ flex: 1, height: 1, backgroundColor: "#1E2540" }} />
-          <Text style={{ marginHorizontal: 16, color: "#5A5F7A", fontSize: 13 }}>
-            Hoặc đăng nhập với
+          <Text
+            style={{ marginHorizontal: 16, color: "#5A5F7A", fontSize: 13 }}
+          >
+            {t("auth.or_login_with", "Hoặc đăng nhập với")}
           </Text>
           <View style={{ flex: 1, height: 1, backgroundColor: "#1E2540" }} />
         </View>
 
         {/* Social Login Buttons — Pill shaped with text */}
-        <View style={{ flexDirection: "row", justifyContent: "center", gap: 16 }}>
+        <View
+          style={{ flexDirection: "row", justifyContent: "center", gap: 16 }}
+        >
           <TouchableOpacity
             testID="oauth-google-login"
             style={{
@@ -239,7 +351,9 @@ export default function LoginScreen() {
             activeOpacity={0.7}
           >
             <Ionicons name="logo-google" size={18} color="#FFFFFF" />
-            <Text style={{ color: "#FFFFFF", fontSize: 14, fontWeight: "600" }}>Google</Text>
+            <Text style={{ color: "#FFFFFF", fontSize: 14, fontWeight: "600" }}>
+              Google
+            </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -261,15 +375,29 @@ export default function LoginScreen() {
             activeOpacity={0.7}
           >
             <Ionicons name="logo-github" size={18} color="#FFFFFF" />
-            <Text style={{ color: "#FFFFFF", fontSize: 14, fontWeight: "600" }}>Github</Text>
+            <Text style={{ color: "#FFFFFF", fontSize: 14, fontWeight: "600" }}>
+              Github
+            </Text>
           </TouchableOpacity>
         </View>
 
         {/* Footer */}
-        <View style={{ marginTop: "auto", paddingTop: 32, flexDirection: "row", justifyContent: "center", alignItems: "center" }}>
-          <Text style={{ color: "#5A5F7A", fontSize: 14 }}>Bạn chưa có tài khoản? </Text>
+        <View
+          style={{
+            marginTop: "auto",
+            paddingTop: 32,
+            flexDirection: "row",
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
+          <Text style={{ color: "#5A5F7A", fontSize: 14 }}>
+            {t("auth.no_account", "Chưa có tài khoản?")}{" "}
+          </Text>
           <TouchableOpacity onPress={() => router.push("/(auth)/signup")}>
-            <Text style={{ color: "#4F8EF7", fontSize: 14, fontWeight: "700" }}>Đăng ký</Text>
+            <Text style={{ color: "#4F8EF7", fontSize: 14, fontWeight: "700" }}>
+              {t("auth.register_now", "Đăng ký ngay")}
+            </Text>
           </TouchableOpacity>
         </View>
       </ScrollView>

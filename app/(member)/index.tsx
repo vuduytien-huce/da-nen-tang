@@ -1,7 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
 import NetInfo, { NetInfoState } from "@react-native-community/netinfo";
+import { decode } from "base64-arraybuffer";
 import { Audio } from "expo-av";
 import { BlurView } from "expo-blur";
+import * as ImagePicker from "expo-image-picker";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
@@ -57,8 +59,65 @@ export default function MemberHome() {
   const profile = useAuthStore((state) => state.profile);
   const session = useAuthStore((state) => state.session);
   const logout = useAuthStore((state) => state.logout);
+  const updateAvatar = useAuthStore((state) => state.updateAvatar);
   const { books, borrows, recommendations, feed } = useLibrary();
   const { latestMessage, dismissLatest } = useBroadcast();
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+
+  const pickAvatar = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.7,
+        base64: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets[0]) {
+        const asset = result.assets[0];
+        setUploadingAvatar(true);
+
+        const fileName = `${profile?.id || "user"}_${Date.now()}.jpg`;
+        const filePath = `avatars/${fileName}`;
+
+        let body: any;
+        if (asset.base64) {
+          body = decode(asset.base64);
+        } else {
+          const response = await fetch(asset.uri);
+          body = await response.blob();
+        }
+
+        const { error: uploadError } = await supabase.storage
+          .from("avatars")
+          .upload(filePath, body, {
+            contentType: "image/jpeg",
+            upsert: true,
+          });
+
+        if (uploadError) throw uploadError;
+
+        const {
+          data: { publicUrl },
+        } = supabase.storage.from("avatars").getPublicUrl(filePath);
+
+        const { error: updateError } = await supabase
+          .from("profiles")
+          .update({ avatar_url: publicUrl })
+          .eq("id", profile?.id);
+
+        if (updateError) throw updateError;
+
+        updateAvatar(publicUrl);
+        Alert.alert(t("common.success"), t("messages.avatar_updated"));
+      }
+    } catch (error: any) {
+      Alert.alert(t("common.error"), error.message || t("messages.upload_failed"));
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
   const { points, level, currentLevelXP, nextLevelXP } = useGamification(
     profile?.id || "",
   );
@@ -80,15 +139,17 @@ export default function MemberHome() {
   const [isProfileMenuVisible, setIsProfileMenuVisible] = useState(false);
   const [aiRecs, setAiRecs] = useState<Book[]>([]);
   const [isAiLoading, setIsAiLoading] = useState(false);
+  const [showAiModal, setShowAiModal] = useState(false);
+  const [aiResponse, setAiResponse] = useState<any>(null);
+
+  const mockPhrases = [
+    t("common.voice_phrase_1"),
+    t("common.voice_phrase_2"),
+    t("common.voice_phrase_3"),
+  ];
+
   const [isListening, setIsListening] = useState(false);
   const [recording, setRecording] = useState<Audio.Recording | null>(null);
-  const [aiResponse, setAiResponse] = useState<{
-    text: string;
-    intent: string;
-    books: any[];
-    searchQuery?: string;
-  } | null>(null);
-  const [showAiModal, setShowAiModal] = useState(false);
   const [syncQueue, setSyncQueue] = useState<SyncAction[]>([]);
   const [networkState, setNetworkState] = useState<NetInfoState | null>(null);
 
@@ -226,8 +287,8 @@ export default function MemberHome() {
         }, 3000);
       } else {
         Alert.alert(
-          "Quyền truy cập",
-          "Vui lòng cho phép quyền ghi âm để sử dụng tìm kiếm giọng nói.",
+          t("messages.mic_permission"),
+          t("messages.mic_permission_desc"),
         );
       }
     } catch (err) {
@@ -244,11 +305,6 @@ export default function MemberHome() {
       if (shouldProcess) {
         haptics.success();
         // Mock transcription
-        const mockPhrases = [
-          "Gợi ý sách trinh thám",
-          "Tìm sách Harry Potter",
-          "Tài khoản của tôi thế nào?",
-        ];
         const transcript =
           mockPhrases[Math.floor(Math.random() * mockPhrases.length)];
 
@@ -273,24 +329,20 @@ export default function MemberHome() {
     const seconds = Math.floor(
       (new Date().getTime() - new Date(date).getTime()) / 1000,
     );
-    if (seconds < 60) return "Vừa xong";
     const minutes = Math.floor(seconds / 60);
-    if (minutes < 60) return `${minutes} phút trước`;
+    if (minutes < 60) return t("common.mins_ago", { minutes });
     const hours = Math.floor(minutes / 60);
-    if (hours < 24) return `${hours} giờ trước`;
+    if (hours < 24) return `${hours} ${t("common.hours_ago", { hours })}`;
     const days = Math.floor(hours / 24);
-    return `${days} ngày trước`;
+    return `${days} ${t("common.days_ago", { days })}`;
   };
 
-  const [activeCategory, setActiveCategory] = useState("Tất cả");
-  const categories = [
-    "Tất cả",
-    "Văn học",
-    "Khoa học",
-    "Lịch sử",
-    "Công nghệ",
-    "Nghệ thuật",
-  ];
+  const [activeCategory, setActiveCategory] = useState("All");
+  const categories = ["All", "Văn học", "Khoa học", "Lịch sử", "Công nghệ", "Nghệ thuật"];
+  const getCategoryLabel = (cat: string) => {
+    if (cat === "All") return t("common.all");
+    return t(`categories.${cat}`, cat);
+  };
 
   // Real-time stats & Overdue logic
   const activeBorrowedCount =
@@ -312,28 +364,28 @@ export default function MemberHome() {
   const stats = React.useMemo(
     () => [
       {
-        label: "Đang mượn",
+        label: t("member.my_borrows"),
         value: activeBorrowedCount,
         icon: "book",
         bgColor: "#3A75F2",
         flex: 1,
       },
       {
-        label: "Tổng số sách",
+        label: t("librarian.total_books"),
         value: myBooks?.length || 0,
         icon: "library",
         bgColor: "#10B981",
         flex: 1,
       },
       {
-        label: "Hạn mức phí",
-        value: totalFine > 0 ? totalFine / 1000 + "k" : "5cuốn",
+        label: t("profile.total_fine"),
+        value: totalFine > 0 ? totalFine / 1000 + "k" : t("member.limit_5"),
         icon: "card",
         bgColor: totalFine > 0 ? "#EF4444" : "#F59E0B",
         flex: 1,
       },
     ],
-    [activeBorrowedCount, myBooks?.length, totalFine],
+    [activeBorrowedCount, myBooks?.length, totalFine, t],
   );
 
   // Logic for charts
@@ -348,7 +400,7 @@ export default function MemberHome() {
   const genreData = React.useMemo(
     () =>
       myBorrows?.reduce((acc: any[], curr: BorrowRecord) => {
-        const genre = curr.book?.category || "Chưa phân loại";
+        const genre = curr.book?.category || t("common.uncategorized");
         const existing = acc.find((g: any) => g.name === genre);
         if (existing) existing.population++;
         else
@@ -396,7 +448,7 @@ export default function MemberHome() {
         <View style={styles.offlineBanner}>
           <Ionicons name="cloud-offline-outline" size={14} color="white" />
           <Text style={styles.offlineBannerText}>
-            Bạn đang ở chế độ ngoại tuyến
+            {t("common.offline_mode")}
           </Text>
         </View>
       )}
@@ -409,7 +461,7 @@ export default function MemberHome() {
             style={{ marginRight: 8 }}
           />
           <Text style={styles.offlineBannerText}>
-            Đang đồng bộ {queueCount} hoạt động...
+            {t("common.syncing_activities", { count: queueCount })}
           </Text>
         </View>
       )}
@@ -425,9 +477,9 @@ export default function MemberHome() {
         >
           <View style={styles.greetingRow}>
             <View>
-              <Text style={styles.friendlyGreeting}>Chào buổi sáng,</Text>
+              <Text style={styles.friendlyGreeting}>{t("common.good_morning")}</Text>
               <Text style={styles.friendlyName}>
-                {profile?.fullName || "Độc giả"}
+                {profile?.fullName || t("common.reader")}
               </Text>
             </View>
             <View style={styles.headerActions}>
@@ -443,7 +495,7 @@ export default function MemberHome() {
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={() => setIsProfileMenuVisible(true)}
-                style={styles.avatarWrapper}
+                style={[styles.avatarWrapper, { marginLeft: 12 }]}
               >
                 {profile?.avatarUrl ? (
                   <Image
@@ -483,7 +535,7 @@ export default function MemberHome() {
                   {profile?.fullName || t("roles.member")}
                 </Text>
                 <Text style={styles.menuUserSub}>
-                  {session?.user?.email || "member@bibliotech.ai"}
+                  {profile?.email || "member@bibliotech.ai"}
                 </Text>
               </View>
 
@@ -534,19 +586,29 @@ export default function MemberHome() {
           entering={FadeInDown.delay(300)}
           style={styles.searchContainer}
         >
-          <TouchableOpacity
-            onPress={() => router.push("/(member)/search" as any)}
-            style={styles.searchBar}
-            activeOpacity={0.9}
-          >
-            <Ionicons name="search-outline" size={20} color="#8A8F9E" />
-            <Text style={styles.searchPlaceholder}>
-              {t("a11y.search_hint")}
-            </Text>
-            <View style={styles.filterBtn}>
+          <View style={styles.searchBar}>
+            <TouchableOpacity
+              onPress={() => router.push("/(member)/search" as any)}
+              style={{ flex: 1, flexDirection: "row", alignItems: "center" }}
+              activeOpacity={0.9}
+            >
+              <Ionicons name="search-outline" size={20} color="#8A8F9E" />
+              <Text style={styles.searchPlaceholder}>
+                {t("a11y.search_hint")}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() =>
+                router.push({
+                  pathname: "/(member)/search",
+                  params: { openFilter: "true" },
+                } as any)
+              }
+              style={styles.filterBtn}
+            >
               <Ionicons name="options-outline" size={18} color="#4F8EF7" />
-            </View>
-          </TouchableOpacity>
+            </TouchableOpacity>
+          </View>
         </Animated.View>
 
         {/* Intuitive Quick Actions Grid */}
@@ -669,8 +731,8 @@ export default function MemberHome() {
             onPress={() => router.push("/(member)/profile" as any)}
             activeOpacity={0.9}
             accessibilityRole="alert"
-            accessibilityLabel={`Cảnh báo quá hạn: Bạn có ${totalFine.toLocaleString()} đồng phí phạt cần xử lý.`}
-            accessibilityHint="Nhấn để xem chi tiết và thanh toán"
+            accessibilityLabel={`${t("member.overdue_warning")}: ${t("member.overdue_fine_notice", { amount: totalFine.toLocaleString() })}`}
+            accessibilityHint={t("member.overdue_hint")}
           >
             <LinearGradient
               colors={["#FF6B6B", "#EE5253"]}
@@ -684,10 +746,10 @@ export default function MemberHome() {
               />
               <View style={styles.bannerInfo}>
                 <Text style={styles.bannerTitle}>
-                  Cảnh báo quá hạn & Phí phạt
+                  {t("member.overdue_warning")}
                 </Text>
                 <Text style={styles.bannerSubtitle}>
-                  Bạn có {totalFine.toLocaleString()}đ phí phạt cần xử lý.
+                  {t("member.overdue_fine_notice", { amount: totalFine.toLocaleString() })}
                 </Text>
               </View>
               <Ionicons
@@ -754,13 +816,13 @@ export default function MemberHome() {
                   style={{ marginRight: 8 }}
                 />
                 <Text style={[styles.analyticsTitle, { color: "#10B981" }]}>
-                  AI Insights • Phân tích
+                  {t("common.ai_insights")}
                 </Text>
               </View>
             </View>
             <View style={styles.chartRow}>
               <View style={{ flex: 1 }}>
-                <Text style={styles.chartLabel}>Tăng trưởng tri thức</Text>
+                <Text style={styles.chartLabel}>{t("member.knowledge_growth")}</Text>
                 {myBorrows?.length > 0 ? (
                   <LineChart
                     data={{
@@ -780,13 +842,13 @@ export default function MemberHome() {
                     withScrollableDot={false}
                   />
                 ) : (
-                  <ChartPlaceholder title="Xu hướng mượn sách" />
+                  <ChartPlaceholder title={t("member.borrowing_trend")} />
                 )}
               </View>
             </View>
 
             <View style={{ marginTop: 24 }}>
-              <Text style={styles.chartLabel}>Phân bổ thể loại yêu thích</Text>
+              <Text style={styles.chartLabel}>{t("member.fav_genre_distribution")}</Text>
               {genreData?.length > 0 ? (
                 <PieChart
                   data={genreData}
@@ -799,7 +861,7 @@ export default function MemberHome() {
                   absolute
                 />
               ) : (
-                <ChartPlaceholder title="Phân bổ thể loại" />
+                <ChartPlaceholder title={t("member.genre_distribution")} />
               )}
             </View>
           </View>
@@ -809,15 +871,15 @@ export default function MemberHome() {
         <View style={styles.feedContainer}>
           <View style={styles.sectionHeader}>
             <View>
-              <Text style={styles.sectionTitle}>Hoạt động cộng đồng</Text>
+              <Text style={styles.sectionTitle}>{t("community.title")}</Text>
               <Text style={styles.sectionSubtitle}>
-                Cập nhật mới nhất từ mọi người
+                {t("community.subtitle")}
               </Text>
             </View>
             <TouchableOpacity
               onPress={() => router.push("/(member)/community" as any)}
             >
-              <Text style={styles.viewAll}>Xem tất cả</Text>
+              <Text style={styles.viewAll}>{t("common.view_all")}</Text>
             </TouchableOpacity>
           </View>
 
@@ -840,8 +902,8 @@ export default function MemberHome() {
                       index === 2 && { borderBottomWidth: 0 },
                     ]}
                     accessibilityRole="link"
-                    accessibilityLabel={`${activity.userName} ${activity.type === "BORROW" ? "mượn" : "đánh giá"} sách ${activity.bookTitle}`}
-                    accessibilityHint="Nhấn để xem chi tiết sách"
+                    accessibilityLabel={`${activity.userName} ${activity.type === "BORROW" ? t("community.just_borrowed") : t("community.just_reviewed")} ${activity.bookTitle}`}
+                    accessibilityHint={t("a11y.view_book_hint")}
                   >
                     <View style={styles.feedAvatar}>
                       {activity.avatarUrl ? (
@@ -872,8 +934,8 @@ export default function MemberHome() {
                         <Text style={styles.userName}>{activity.userName}</Text>
                         <Text style={styles.actionText}>
                           {activity.type === "BORROW"
-                            ? " vừa mượn "
-                            : " vừa đánh giá "}
+                            ? t("community.just_borrowed")
+                            : t("community.just_reviewed")}
                         </Text>
                         <Text style={styles.bookName}>
                           {activity.bookTitle}
@@ -893,7 +955,7 @@ export default function MemberHome() {
               ))}
             </View>
           ) : (
-            <Text style={styles.emptyFeed}>Chưa có hoạt động nào mới.</Text>
+            <Text style={styles.emptyFeed}>{t("community.empty_feed")}</Text>
           )}
         </View>
 
@@ -902,9 +964,9 @@ export default function MemberHome() {
           <View style={styles.recommendationContainer}>
             <View style={styles.sectionHeader}>
               <View>
-                <Text style={styles.sectionTitle}>Gợi ý bởi BiblioAI</Text>
+                <Text style={styles.sectionTitle}>{t("member.ai_recs")}</Text>
                 <Text style={styles.sectionSubtitle}>
-                  Dựa trên lịch sử mượn sách của bạn
+                  {t("member.ai_recs_desc")}
                 </Text>
               </View>
               {isAiLoading ? (
@@ -958,9 +1020,9 @@ export default function MemberHome() {
 
         {/* Featured Section */}
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Khám phá sách hay</Text>
+          <Text style={styles.sectionTitle}>{t("member.featured_books")}</Text>
           <TouchableOpacity onPress={() => router.push("/(member)/search")}>
-            <Text style={styles.viewAll}>Tất cả</Text>
+            <Text style={styles.viewAll}>{t("common.view_all")}</Text>
           </TouchableOpacity>
         </View>
 
@@ -1000,7 +1062,7 @@ export default function MemberHome() {
 
         {/* Genre Chips */}
         <View style={{ marginHorizontal: 20, marginBottom: 16 }}>
-          <Text style={styles.sectionTitle}>Chủ đề</Text>
+          <Text style={styles.sectionTitle}>{t("common.subjects")}</Text>
         </View>
         <ScrollView
           horizontal
@@ -1017,7 +1079,7 @@ export default function MemberHome() {
               ]}
               accessibilityRole="tab"
               accessibilityState={{ selected: activeCategory === cat }}
-              accessibilityLabel={`Chủ đề ${cat}`}
+              accessibilityLabel={`${t("common.subject")} ${getCategoryLabel(cat)}`}
             >
               <Text
                 style={[
@@ -1025,7 +1087,7 @@ export default function MemberHome() {
                   activeCategory === cat && styles.activeCategoryText,
                 ]}
               >
-                {cat}
+                {getCategoryLabel(cat)}
               </Text>
             </TouchableOpacity>
           ))}
@@ -1084,18 +1146,17 @@ export default function MemberHome() {
                   />
                 ))}
               </View>
-              <Text style={styles.voiceStatus}>Đang nghe...</Text>
+              <Text style={styles.voiceStatus}>{t("common.listening")}</Text>
               <TouchableOpacity
                 style={styles.cancelVoiceBtn}
                 onPress={() => stopListening(false)}
               >
-                <Text style={styles.cancelVoiceText}>Hủy</Text>
+                <Text style={styles.cancelVoiceText}>{t("common.cancel")}</Text>
               </TouchableOpacity>
             </View>
           </View>
         </Modal>
 
-        {/* AI Librarian Modal */}
         <Modal visible={showAiModal} transparent animationType="slide">
           <BlurView intensity={80} tint="dark" style={styles.modalOverlay}>
             <View style={styles.aiModalContent}>
@@ -1105,7 +1166,7 @@ export default function MemberHome() {
               >
                 <View style={styles.aiModalHeader}>
                   <Ionicons name="sparkles" size={24} color="#FFD700" />
-                  <Text style={styles.aiModalTitle}>Thủ thư ảo BiblioAI</Text>
+                  <Text style={styles.aiModalTitle}>{t("common.ai_librarian")}</Text>
                   <TouchableOpacity onPress={() => setShowAiModal(false)}>
                     <Ionicons name="close" size={24} color="#8B8FA3" />
                   </TouchableOpacity>
@@ -1114,7 +1175,7 @@ export default function MemberHome() {
                   <Text style={styles.aiResponseText}>{aiResponse?.text}</Text>
                   {(aiResponse?.books?.length ?? 0) > 0 && (
                     <View style={styles.aiBooksSection}>
-                      <Text style={styles.aiSubTitle}>Sách gợi ý cho bạn:</Text>
+                      <Text style={styles.aiSubTitle}>{t("common.books_suggested")}</Text>
                       {aiResponse?.books?.map((book: any) => (
                         <TouchableOpacity
                           key={book.isbn || book.id}
@@ -1214,6 +1275,20 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     backgroundColor: "#1E2540",
   },
+  cameraOverlayBtn: {
+    position: "absolute",
+    bottom: -1,
+    right: -1,
+    backgroundColor: "#3A75F2",
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#0F121D",
+  },
+
   largeAvatar: {
     width: "100%",
     height: "100%",

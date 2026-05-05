@@ -23,7 +23,7 @@ import { useTranslation } from 'react-i18next';
 const { width } = Dimensions.get('window');
 
 export default function LibrarianInsights() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { getSuggestions, getGlobalTrends, runIntelligence, runPredictiveAnalysis } = useLibrarianAnalytics();
   const { getBorrowingHeatmap, getRetentionStats, getInventoryHealth, getPeakHours } = useAnalytics();
   
@@ -33,6 +33,7 @@ export default function LibrarianInsights() {
   const { data: retention } = getRetentionStats();
   const { data: health } = getInventoryHealth();
   const { data: peakHours } = getPeakHours();
+  const isEn = i18n.language?.startsWith('en');
 
   const [activeTab, setActiveTab] = useState('overview');
   const [refreshing, setRefreshing] = useState(false);
@@ -103,7 +104,7 @@ export default function LibrarianInsights() {
             </TouchableOpacity>
             <TouchableOpacity 
               style={styles.refreshBtn}
-              onPress={() => runIntelligence.mutate()}
+              onPress={() => runIntelligence.mutate(i18n.language)}
               disabled={runIntelligence.isPending}
             >
               {runIntelligence.isPending ? (
@@ -220,7 +221,9 @@ export default function LibrarianInsights() {
                         </Text>
                       )}
                     </View>
-                    <Text style={styles.suggestionTitle}>{suggestion.suggestion_text}</Text>
+                    <Text style={styles.suggestionTitle}>
+                      {isEn ? (suggestion.suggestion_text_en || suggestion.suggestion_text) : (suggestion.suggestion_text_vi || suggestion.suggestion_text)}
+                    </Text>
                     {suggestion.book && (
                       <Text style={styles.bookInfo}>{t('common.book_title')}: {suggestion.book.title}</Text>
                     )}
@@ -255,7 +258,9 @@ export default function LibrarianInsights() {
                         {t('analytics.confidence')}: {Math.round(suggestion.confidence_score * 100)}%
                       </Text>
                     </View>
-                    <Text style={styles.suggestionTitle}>{suggestion.suggestion_text}</Text>
+                    <Text style={styles.suggestionTitle}>
+                      {isEn ? (suggestion.suggestion_text_en || suggestion.suggestion_text) : (suggestion.suggestion_text_vi || suggestion.suggestion_text)}
+                    </Text>
                     {suggestion.book && (
                       <Text style={styles.bookInfo}>{t('common.book_title')}: {suggestion.book.title}</Text>
                     )}

@@ -16,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider'; // Cần cài thêm nếu chưa có, tạm thời dùng view nếu chưa cài
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
+import { useTranslation } from 'react-i18next';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -36,6 +37,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   coverUrl,
   onClose 
 }) => {
+  const { t } = useTranslation();
   const [sound, setSound] = useState<Audio.Sound | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [position, setPosition] = useState(0);
@@ -80,16 +82,16 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
 
   const handleSetTimer = () => {
     const options = [
-      { label: 'Tắt hẹn giờ', value: null },
-      { label: '15 phút', value: 15 },
-      { label: '30 phút', value: 30 },
-      { label: '60 phút', value: 60 },
-      { label: 'Hết chương', value: 'end' }
+      { label: t("audiobooks.turn_off_timer", 'Tắt hẹn giờ'), value: null },
+      { label: `15 ${t("audiobooks.minutes_short", 'phút')}`, value: 15 },
+      { label: `30 ${t("audiobooks.minutes_short", 'phút')}`, value: 30 },
+      { label: `60 ${t("audiobooks.minutes_short", 'phút')}`, value: 60 },
+      { label: t("audiobooks.end_of_chapter", 'Hết chương'), value: 'end' }
     ];
 
     Alert.alert(
-      'Hẹn giờ tắt',
-      'Chọn thời gian tự động dừng phát',
+      t("audiobooks.sleep_timer", 'Hẹn giờ tắt'),
+      t("audiobooks.select_timer_desc", 'Chọn thời gian tự động dừng phát'),
       options.map(opt => ({
         text: opt.label,
         onPress: () => {
@@ -205,7 +207,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
         <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
           <Ionicons name="chevron-down" size={28} color="#FFFFFF" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Đang phát</Text>
+        <Text style={styles.headerTitle}>{t("audiobooks.now_playing", "Đang phát")}</Text>
         <TouchableOpacity style={styles.closeBtn}>
           <Ionicons name="ellipsis-horizontal" size={24} color="#FFFFFF" />
         </TouchableOpacity>
@@ -274,7 +276,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
         <View style={styles.bottomActions}>
           <TouchableOpacity style={styles.actionBtn}>
             <Ionicons name="list" size={20} color="#8A8F9E" />
-            <Text style={styles.actionText}>Chương</Text>
+            <Text style={styles.actionText}>{t("audiobooks.chapters", "Chương")}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.actionBtn} onPress={handleSetTimer}>
             <Ionicons 
@@ -283,7 +285,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
               color={sleepTimerRemaining ? "#3A75F2" : "#8A8F9E"} 
             />
             <Text style={[styles.actionText, sleepTimerRemaining ? { color: "#3A75F2" } : null]}>
-              {sleepTimerRemaining ? formatCountdown(sleepTimerRemaining) : 'Hẹn giờ'}
+              {sleepTimerRemaining ? formatCountdown(sleepTimerRemaining) : t("audiobooks.timer_label", "Hẹn giờ")}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.actionBtn} onPress={() => changeSpeed()}>

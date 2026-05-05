@@ -40,7 +40,7 @@ export default function LibrarianReports() {
   // Category Distribution for Pie Chart
   const categories: Record<string, number> = {};
   allBooks?.forEach(b => {
-    const cat = b.category || t('common.other');
+    const cat = b.category ? t('categories.' + b.category, b.category) : t('common.other');
     categories[cat] = (categories[cat] || 0) + 1;
   });
 

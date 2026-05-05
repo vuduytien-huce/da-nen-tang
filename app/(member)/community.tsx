@@ -5,51 +5,56 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuthStore } from '../../src/store/useAuthStore';
+import { useTranslation } from 'react-i18next';
 
 const { width } = Dimensions.get('window');
 
 // Performance: Memoized Feed Item
-const FeedItem = React.memo(({ activity, onPress, timeAgo }: any) => (
-  <TouchableOpacity 
-    style={styles.feedItem}
-    onPress={() => onPress(activity.bookIsbn)}
-    accessibilityRole="button"
-    accessibilityLabel={`${activity.userName} ${activity.type === 'BORROW' ? 'vừa mượn' : 'vừa đánh giá'} ${activity.bookTitle}`}
-    accessibilityHint="Nhấn để xem chi tiết sách"
-  >
-    <View style={styles.feedAvatar} importantForAccessibility="no-hide-descendants">
-      {activity.avatarUrl ? (
-        <Image source={activity.avatarUrl ? { uri: activity.avatarUrl } : undefined} style={styles.avatarImg} />
-      ) : (
-        <View style={[styles.avatarPlaceholder, { backgroundColor: activity.type === 'BORROW' ? '#3A75F2' : '#F59E0B' }]}>
-          <Text style={styles.avatarText}>{activity.userName?.charAt(0)}</Text>
-        </View>
-      )}
-      <View style={styles.levelBadgeMini}>
-        <Text style={styles.levelBadgeText}>Lvl {activity.userLevel || 1}</Text>
-      </View>
-    </View>
-    <View style={styles.feedContent}>
-      <Text style={styles.feedText} numberOfLines={2}>
-        <Text style={styles.userName}>{activity.userName}</Text>
-        <Text style={styles.actionText}>
-          {activity.type === 'BORROW' ? ' vừa mượn ' : ' vừa đánh giá '}
-        </Text>
-        <Text style={styles.bookName}>{activity.bookTitle}</Text>
-        {activity.type === 'REVIEW' && (
-          <Text style={styles.ratingText}> {activity.rating}★</Text>
+const FeedItem = React.memo(({ activity, onPress, timeAgo }: any) => {
+  const { t } = useTranslation();
+  return (
+    <TouchableOpacity 
+      style={styles.feedItem}
+      onPress={() => onPress(activity.bookIsbn)}
+      accessibilityRole="button"
+      accessibilityLabel={`${activity.userName} ${activity.type === 'BORROW' ? t('community.just_borrowed') : t('community.just_reviewed')} ${activity.bookTitle}`}
+      accessibilityHint={t('a11y.view_book_hint')}
+    >
+      <View style={styles.feedAvatar} importantForAccessibility="no-hide-descendants">
+        {activity.avatarUrl ? (
+          <Image source={activity.avatarUrl ? { uri: activity.avatarUrl } : undefined} style={styles.avatarImg} />
+        ) : (
+          <View style={[styles.avatarPlaceholder, { backgroundColor: activity.type === 'BORROW' ? '#3A75F2' : '#F59E0B' }]}>
+            <Text style={styles.avatarText}>{activity.userName?.charAt(0)}</Text>
+          </View>
         )}
-      </Text>
-      <Text style={styles.feedTime} accessibilityLabel={`Thời gian: ${timeAgo(activity.timestamp)}`}>
-        {timeAgo(activity.timestamp)}
-      </Text>
-    </View>
-    <Ionicons name="chevron-forward" size={16} color="#3D4260" />
-  </TouchableOpacity>
-));
+        <View style={styles.levelBadgeMini}>
+          <Text style={styles.levelBadgeText}>{t('common.level_short', 'Lvl')} {activity.userLevel || 1}</Text>
+        </View>
+      </View>
+      <View style={styles.feedContent}>
+        <Text style={styles.feedText} numberOfLines={2}>
+          <Text style={styles.userName}>{activity.userName}</Text>
+          <Text style={styles.actionText}>
+            {activity.type === 'BORROW' ? t('community.just_borrowed') : t('community.just_reviewed')}
+          </Text>
+          <Text style={styles.bookName}>{activity.bookTitle}</Text>
+          {activity.type === 'REVIEW' && (
+            <Text style={styles.ratingText}> {activity.rating}★</Text>
+          )}
+        </Text>
+        <Text style={styles.feedTime} accessibilityLabel={t('a11y.time_label', 'Time: {{time}}', { time: timeAgo(activity.timestamp) })}>
+          {timeAgo(activity.timestamp)}
+        </Text>
+      </View>
+      <Ionicons name="chevron-forward" size={16} color="#3D4260" />
+    </TouchableOpacity>
+  );
+});
 
 // Leaderboard Item Component
 const LeaderboardItem = React.memo(({ user, index, isCurrentUser }: any) => {
+  const { t } = useTranslation();
   const isTop3 = index < 3;
   const rankColors = ['#F59E0B', '#9CA3AF', '#D97706']; // Gold, Silver, Bronze
   const rankColor = isTop3 ? rankColors[index] : '#3D4260';
@@ -71,9 +76,9 @@ const LeaderboardItem = React.memo(({ user, index, isCurrentUser }: any) => {
       </View>
       <View style={styles.lbInfo}>
         <Text style={[styles.lbName, isCurrentUser && styles.lbNameCurrent]}>
-          {user.fullName} {isCurrentUser && '(Bạn)'}
+          {user.fullName} {isCurrentUser && `(${t('community.you')})`}
         </Text>
-        <Text style={styles.lbLevel}>Cấp {user.level || 1} • {user.role}</Text>
+        <Text style={styles.lbLevel}>{t('community.level')} {user.level || 1} • {t('roles.' + (user.role || 'member').toLowerCase())}</Text>
       </View>
       <View style={styles.lbScore}>
         <Text style={styles.lbXp}>{user.xp || 0}</Text>
@@ -84,6 +89,7 @@ const LeaderboardItem = React.memo(({ user, index, isCurrentUser }: any) => {
 });
 
 export default function CommunityFeedPage() {
+  const { t } = useTranslation();
   const router = useRouter();
   const currentUser = useAuthStore((state) => state.profile);
   const { feed, bookClubs: clubHooks, gamification } = useLibrary();
@@ -104,31 +110,31 @@ export default function CommunityFeedPage() {
       setIsCreateModalVisible(false);
       setNewClubName('');
       setNewClubDesc('');
-      Alert.alert('Thành công', 'Câu lạc bộ đã được tạo!');
+      Alert.alert(t('common.success'), t('clubs.created'));
     } catch (error) {
-      Alert.alert('Lỗi', 'Không thể tạo câu lạc bộ');
+      Alert.alert(t('common.error'), t('clubs.create_failed'));
     }
   };
 
   const handleJoinClub = async (clubId: string) => {
     try {
       await joinClub.mutateAsync(clubId);
-      Alert.alert('Thành công', 'Chào mừng thành viên mới!');
+      Alert.alert(t('common.success'), t('clubs.joined'));
     } catch (error) {
-      Alert.alert('Lỗi', 'Bạn đã là thành viên hoặc không thể tham gia');
+      Alert.alert(t('common.error'), t('clubs.join_failed'));
     }
   };
 
   const timeAgo = useCallback((date: string) => {
     const seconds = Math.floor((new Date().getTime() - new Date(date).getTime()) / 1000);
-    if (seconds < 60) return 'Vừa xong';
+    if (seconds < 60) return t('community.just_now');
     const minutes = Math.floor(seconds / 60);
-    if (minutes < 60) return `${minutes} phút trước`;
+    if (minutes < 60) return t('community.minutes_ago', { minutes });
     const hours = Math.floor(minutes / 60);
-    if (hours < 24) return `${hours} giờ trước`;
+    if (hours < 24) return t('community.hours_ago', { hours });
     const days = Math.floor(hours / 24);
-    return `${days} ngày trước`;
-  }, []);
+    return t('community.days_ago', { days });
+  }, [t]);
 
   const handleNavigate = useCallback((isbn: string) => {
     router.push(`/(member)/book/${isbn}` as any);
@@ -142,19 +148,19 @@ export default function CommunityFeedPage() {
     <View style={styles.header}>
       <View style={styles.headerTitleContainer} accessibilityRole="header">
         <Ionicons name="people" size={28} color="#4F8EF7" accessibilityElementsHidden={true} />
-        <Text style={styles.headerTitle}>Hoạt động cộng đồng</Text>
+        <Text style={styles.headerTitle}>{t('community.title')}</Text>
       </View>
-      <Text style={styles.headerSubtitle}>Những gì đang diễn ra tại BiblioTech</Text>
+      <Text style={styles.headerSubtitle}>{t('community.subtitle')}</Text>
     </View>
-  ), []);
+  ), [t]);
 
   const EmptyState = useMemo(() => (
     <View style={styles.emptyContainer} accessibilityLiveRegion="polite">
       <Ionicons name="chatbubbles-outline" size={64} color="#1E2540" />
-      <Text style={styles.emptyFeed}>Chưa có hoạt động nào mới.</Text>
-      <Text style={styles.emptyFeedSub}>Hãy mượn sách hoặc để lại đánh giá để trở thành người đầu tiên!</Text>
+      <Text style={styles.emptyFeed}>{t('community.empty_feed')}</Text>
+      <Text style={styles.emptyFeedSub}>{t('community.empty_feed_sub')}</Text>
     </View>
-  ), []);
+  ), [t]);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -167,19 +173,19 @@ export default function CommunityFeedPage() {
           style={[styles.tab, activeTab === 'FEED' && styles.activeTab]} 
           onPress={() => setActiveTab('FEED')}
         >
-          <Text style={[styles.tabText, activeTab === 'FEED' && styles.activeTabText]}>HOẠT ĐỘNG</Text>
+          <Text style={[styles.tabText, activeTab === 'FEED' && styles.activeTabText]}>{t('community.activity')}</Text>
         </TouchableOpacity>
         <TouchableOpacity 
           style={[styles.tab, activeTab === 'CLUBS' && styles.activeTab]} 
           onPress={() => setActiveTab('CLUBS')}
         >
-          <Text style={[styles.tabText, activeTab === 'CLUBS' && styles.activeTabText]}>CÂU LẠC BỘ</Text>
+          <Text style={[styles.tabText, activeTab === 'CLUBS' && styles.activeTabText]}>{t('community.clubs')}</Text>
         </TouchableOpacity>
         <TouchableOpacity 
           style={[styles.tab, activeTab === 'LEADERBOARD' && styles.activeTab]} 
           onPress={() => setActiveTab('LEADERBOARD')}
         >
-          <Text style={[styles.tabText, activeTab === 'LEADERBOARD' && styles.activeTabText]}>XẾP HẠNG</Text>
+          <Text style={[styles.tabText, activeTab === 'LEADERBOARD' && styles.activeTabText]}>{t('community.leaderboard')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -212,20 +218,20 @@ export default function CommunityFeedPage() {
                     <Text style={styles.clubDesc} numberOfLines={2}>{item.description}</Text>
                     <View style={styles.clubStats}>
                       <Ionicons name="people" size={14} color="#8A8F9E" />
-                      <Text style={styles.clubStatText}>{item.member_count || 0} thành viên</Text>
+                      <Text style={styles.clubStatText}>{t('community.members_count', { count: item.member_count || 0 })}</Text>
                     </View>
                   </View>
                   <TouchableOpacity style={styles.joinBtn} onPress={() => handleJoinClub(item.id)}>
-                    <Text style={styles.joinBtnText}>THAM GIA</Text>
+                    <Text style={styles.joinBtnText}>{t('community.join')}</Text>
                   </TouchableOpacity>
                 </LinearGradient>
               </TouchableOpacity>
             )}
             ListEmptyComponent={isClubsLoading ? <ActivityIndicator color="#4F8EF7" /> : (
               <View style={styles.emptyContainer}>
-                <Text style={styles.emptyFeed}>Chưa có câu lạc bộ nào.</Text>
+                <Text style={styles.emptyFeed}>{t('community.no_clubs_yet')}</Text>
                 <TouchableOpacity style={styles.createFirstBtn} onPress={() => setIsCreateModalVisible(true)}>
-                  <Text style={styles.createFirstBtnText}>Tạo câu lạc bộ đầu tiên</Text>
+                  <Text style={styles.createFirstBtnText}>{t('community.create_first_club')}</Text>
                 </TouchableOpacity>
               </View>
             )}
@@ -253,20 +259,20 @@ export default function CommunityFeedPage() {
                 />
               </View>
               <View style={styles.lbInfo}>
-                <Text style={styles.myRankTitle}>Thứ hạng của bạn</Text>
+                <Text style={styles.myRankTitle}>{t('community.your_rank')}</Text>
                 <Text style={styles.myRankName}>{currentUser.fullName}</Text>
               </View>
               <View style={styles.lbScore}>
                 <Text style={styles.myRankXp}>#{leaderboardData.findIndex(u => u.id === currentUser.id) + 1 || '?'}</Text>
-                <Text style={styles.myRankXpLabel}>RANK</Text>
+                <Text style={styles.myRankXpLabel}>{t('community.rank', 'RANK')}</Text>
               </View>
             </LinearGradient>
           )}
 
           <View style={styles.leaderboardHeader}>
             <View>
-              <Text style={styles.leaderboardHeaderTitle}>Bảng Vàng Độc Giả</Text>
-              <Text style={styles.leaderboardHeaderSubtitle}>Top 50 thành viên tích cực nhất</Text>
+              <Text style={styles.leaderboardHeaderTitle}>{t('community.leaderboard_title')}</Text>
+              <Text style={styles.leaderboardHeaderSubtitle}>{t('community.leaderboard_subtitle')}</Text>
             </View>
             <Ionicons name="trophy-outline" size={24} color="#F59E0B" />
           </View>
@@ -291,31 +297,31 @@ export default function CommunityFeedPage() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Tạo Câu Lạc Bộ Mới</Text>
+              <Text style={styles.modalTitle}>{t('community.create_new_club')}</Text>
               <TouchableOpacity onPress={() => setIsCreateModalVisible(false)}>
                 <Ionicons name="close" size={24} color="white" />
               </TouchableOpacity>
             </View>
             <ScrollView style={styles.modalBody}>
-              <Text style={styles.inputLabel}>Tên câu lạc bộ</Text>
+              <Text style={styles.inputLabel}>{t('community.club_name')}</Text>
               <TextInput 
                 style={styles.input} 
                 value={newClubName} 
                 onChangeText={setNewClubName}
-                placeholder="Ví dụ: Hội yêu sách trinh thám"
+                placeholder={t('community.club_name_placeholder')}
                 placeholderTextColor="#5A5F7A"
               />
-              <Text style={styles.inputLabel}>Mô tả</Text>
+              <Text style={styles.inputLabel}>{t('community.description')}</Text>
               <TextInput 
                 style={[styles.input, styles.textArea]} 
                 value={newClubDesc} 
                 onChangeText={setNewClubDesc}
                 multiline
-                placeholder="Chia sẻ mục tiêu của nhóm bạn..."
+                placeholder={t('community.club_desc_placeholder')}
                 placeholderTextColor="#5A5F7A"
               />
               <TouchableOpacity style={styles.saveBtn} onPress={handleCreateClub}>
-                <Text style={styles.saveBtnText}>TẠO NGAY</Text>
+                <Text style={styles.saveBtnText}>{t('community.create_now')}</Text>
               </TouchableOpacity>
             </ScrollView>
           </View>

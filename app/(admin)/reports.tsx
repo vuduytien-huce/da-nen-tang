@@ -6,8 +6,10 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { AnalyticsHeatmap } from '../../src/features/admin/components/AnalyticsHeatmap';
 import { LogisticsRadar } from '../../src/features/admin/components/LogisticsRadar';
 import { BranchMap } from '../../src/features/admin/components/BranchMap';
+import { useTranslation } from 'react-i18next';
 
 export default function ReportsScreen() {
+  const { t, i18n } = useTranslation();
   const [loading, setLoading] = useState(false);
   const [reportData, setReportData] = useState<MonthlyReportData | null>(null);
   
@@ -22,7 +24,7 @@ export default function ReportsScreen() {
       const data = await reportService.getMonthlyStats(selectedMonth);
       setReportData(data);
     } catch (error: any) {
-      Alert.alert('Lỗi', 'Không thể tải dữ liệu báo cáo: ' + error.message);
+      Alert.alert(t('common.error'), t('messages.fetch_report_failed', 'Không thể tải dữ liệu báo cáo: ') + error.message);
     } finally {
       setLoading(false);
     }
@@ -33,7 +35,7 @@ export default function ReportsScreen() {
     try {
       await reportService.exportToCSV(reportData);
     } catch (error: any) {
-      Alert.alert('Lỗi', 'Không thể xuất file CSV: ' + error.message);
+      Alert.alert(t('common.error'), t('messages.export_csv_failed', 'Không thể xuất file CSV: ') + error.message);
     }
   };
 
@@ -42,7 +44,7 @@ export default function ReportsScreen() {
     try {
       await reportService.exportToPDF(reportData);
     } catch (error: any) {
-      Alert.alert('Lỗi', 'Không thể xuất file PDF: ' + error.message);
+      Alert.alert(t('common.error'), t('messages.export_pdf_failed', 'Không thể xuất file PDF: ') + error.message);
     }
   };
 
@@ -50,8 +52,8 @@ export default function ReportsScreen() {
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
-          <Text style={styles.title}>Báo cáo thông minh</Text>
-          <Text style={styles.subtitle}>Phân tích hoạt động thư viện tháng {selectedMonth}</Text>
+          <Text style={styles.title}>{t('admin.smart_reports', 'Báo cáo thông minh')}</Text>
+          <Text style={styles.subtitle}>{t('admin.reports_subtitle_month', 'Phân tích hoạt động thư viện tháng {{month}}', { month: selectedMonth })}</Text>
         </View>
 
         <View style={styles.controls}>
@@ -65,7 +67,7 @@ export default function ReportsScreen() {
             ) : (
               <>
                 <Ionicons name="analytics-outline" size={20} color="#FFF" />
-                <Text style={styles.fetchBtnText}>Tạo báo cáo tháng {selectedMonth}</Text>
+                <Text style={styles.fetchBtnText}>{t('admin.generate_report_month', 'Tạo báo cáo tháng {{month}}', { month: selectedMonth })}</Text>
               </>
             )}
           </TouchableOpacity>
@@ -75,30 +77,30 @@ export default function ReportsScreen() {
           <View style={styles.reportContainer}>
             <View style={styles.statsGrid}>
               <View style={styles.statBox}>
-                <Text style={styles.statLabel}>Lượt mượn</Text>
+                <Text style={styles.statLabel}>{t('analytics.total_borrows', 'Lượt mượn')}</Text>
                 <Text style={styles.statValue}>{reportData.borrowCount}</Text>
                 <View style={[styles.trendBadge, { backgroundColor: 'rgba(16, 185, 129, 0.1)' }]}>
                   <Ionicons name="arrow-up" size={12} color="#10B981" />
-                  <Text style={[styles.trendText, { color: '#10B981' }]}>Ổn định</Text>
+                  <Text style={[styles.trendText, { color: '#10B981' }]}>{t('analytics.stable', 'Ổn định')}</Text>
                 </View>
               </View>
 
               <View style={styles.statBox}>
-                <Text style={styles.statLabel}>Lượt trả</Text>
+                <Text style={styles.statLabel}>{t('analytics.total_returns', 'Lượt trả')}</Text>
                 <Text style={styles.statValue}>{reportData.returnCount}</Text>
-                <Text style={styles.statSubText}>Tỉ lệ: {reportData.borrowCount ? Math.round((reportData.returnCount / reportData.borrowCount) * 100) : 0}%</Text>
+                <Text style={styles.statSubText}>{t('analytics.rate', 'Tỉ lệ:')} {reportData.borrowCount ? Math.round((reportData.returnCount / reportData.borrowCount) * 100) : 0}%</Text>
               </View>
 
               <View style={styles.statBox}>
-                <Text style={styles.statLabel}>Tiền phạt</Text>
+                <Text style={styles.statLabel}>{t('analytics.fine_revenue', 'Tiền phạt')}</Text>
                 <Text style={[styles.statValue, { color: '#F59E0B' }]}>{reportData.fineRevenue.toLocaleString()}</Text>
                 <Text style={styles.statSubText}>VND</Text>
               </View>
 
               <View style={styles.statBox}>
-                <Text style={styles.statLabel}>Hoạt động</Text>
+                <Text style={styles.statLabel}>{t('analytics.active_users', 'Hoạt động')}</Text>
                 <Text style={styles.statValue}>{reportData.activeUsers}</Text>
-                <Text style={styles.statSubText}>Thành viên</Text>
+                <Text style={styles.statSubText}>{t('roles.member', 'Thành viên')}</Text>
               </View>
             </View>
 
@@ -113,9 +115,11 @@ export default function ReportsScreen() {
             />
 
             <LogisticsRadar 
-              title="Phân phối kho chi nhánh"
+              title={t('admin.branch_distribution', 'Phân phối kho chi nhánh')}
               data={{
-                labels: ["Trung tâm", "Quận 1", "Quận 7", "Thủ Đức", "Bình Thạnh"],
+                labels: i18n.language === 'en' 
+                  ? ["Center", "District 1", "District 7", "Thu Duc", "Binh Thanh"] 
+                  : ["Trung tâm", "Quận 1", "Quận 7", "Thủ Đức", "Bình Thạnh"],
                 data: [0.9, 0.6, 0.4, 0.8, 0.5]
               }}
             />
@@ -123,7 +127,7 @@ export default function ReportsScreen() {
             <BranchMap />
 
             <View style={styles.exportSection}>
-              <Text style={styles.sectionTitle}>Xuất dữ liệu</Text>
+              <Text style={styles.sectionTitle}>{t('admin.export_data', 'Xuất dữ liệu')}</Text>
               <View style={styles.exportButtons}>
                 <TouchableOpacity style={styles.exportBtn} onPress={handleExportCSV}>
                   <LinearGradient

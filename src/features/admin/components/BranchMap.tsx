@@ -3,6 +3,7 @@ import { View, StyleSheet, Text, ActivityIndicator, Dimensions } from 'react-nat
 import MapView, { Marker, Callout, PROVIDER_GOOGLE } from 'react-native-maps';
 import { supabase } from '@/src/api/supabase';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 
 const { width, height } = Dimensions.get('window');
 
@@ -16,6 +17,7 @@ interface Branch {
 }
 
 export const BranchMap = () => {
+  const { t } = useTranslation();
   const [branches, setBranches] = useState<Branch[]>([]);
   const [loading, setLoading] = useState(true);
   const [region, setRegion] = useState({
@@ -24,6 +26,18 @@ export const BranchMap = () => {
     latitudeDelta: 0.1,
     longitudeDelta: 0.1,
   });
+
+  const getBranchDisplayName = (name: string) => {
+    if (!name) return '';
+    const lower = name.toLowerCase();
+    if (lower.includes('south') || lower.includes('miền nam') || lower.includes('hồ chí minh') || lower.includes('hcm')) {
+      return t('admin.branch_south', 'South Branch - TP.HCM');
+    }
+    if (lower.includes('main') || lower.includes('chính') || lower.includes('hà nội') || lower.includes('hn')) {
+      return t('admin.branch_main', 'Main Branch - Hà Nội');
+    }
+    return name;
+  };
 
   useEffect(() => {
     fetchBranches();
@@ -88,7 +102,7 @@ export const BranchMap = () => {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#3A75F2" />
-        <Text style={styles.loadingText}>Đang tải bản đồ chi nhánh...</Text>
+        <Text style={styles.loadingText}>{t('admin.loading_branch_map', 'Đang tải bản đồ chi nhánh...')}</Text>
       </View>
     );
   }
@@ -109,16 +123,22 @@ export const BranchMap = () => {
           >
             <Callout tooltip>
               <View style={styles.calloutContainer}>
-                <Text style={styles.branchName}>{branch.name}</Text>
+                <Text style={styles.branchName}>{getBranchDisplayName(branch.name)}</Text>
                 <Text style={styles.branchLocation}>{branch.location}</Text>
                 <View style={styles.healthBadge}>
                   <View style={[styles.dot, { backgroundColor: getMarkerColor(branch.inventory_health || 'high') }]} />
                   <Text style={styles.healthText}>
-                    Tồn kho: {branch.inventory_health === 'low' ? 'Cần bổ sung' : branch.inventory_health === 'medium' ? 'Trung bình' : 'Tốt'}
+                    {t('admin.inventory_status', 'Tồn kho')}: {
+                      branch.inventory_health === 'low'
+                        ? t('admin.inventory_restock', 'Cần bổ sung')
+                        : branch.inventory_health === 'medium'
+                        ? t('admin.inventory_medium', 'Trung bình')
+                        : t('admin.inventory_good', 'Tốt')
+                    }
                   </Text>
                 </View>
                 <View style={styles.divider} />
-                <Text style={styles.viewMore}>Nhấn để xem chi tiết</Text>
+                <Text style={styles.viewMore}>{t('admin.view_details', 'Nhấn để xem chi tiết')}</Text>
               </View>
             </Callout>
           </Marker>
@@ -129,15 +149,15 @@ export const BranchMap = () => {
       <View style={styles.legend}>
         <View style={styles.legendItem}>
           <View style={[styles.dot, { backgroundColor: '#10B981' }]} />
-          <Text style={styles.legendText}>Tốt</Text>
+          <Text style={styles.legendText}>{t('admin.inventory_good', 'Tốt')}</Text>
         </View>
         <View style={styles.legendItem}>
           <View style={[styles.dot, { backgroundColor: '#F59E0B' }]} />
-          <Text style={styles.legendText}>Cảnh báo</Text>
+          <Text style={styles.legendText}>{t('admin.inventory_warning', 'Cảnh báo')}</Text>
         </View>
         <View style={styles.legendItem}>
           <View style={[styles.dot, { backgroundColor: '#EF4444' }]} />
-          <Text style={styles.legendText}>Nguy cấp</Text>
+          <Text style={styles.legendText}>{t('admin.inventory_critical', 'Nguy cấp')}</Text>
         </View>
       </View>
     </View>

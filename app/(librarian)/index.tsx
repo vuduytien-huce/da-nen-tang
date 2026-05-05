@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Dimensions, StatusBar, ActivityIndicator, Alert, Modal, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,16 +10,75 @@ import { LanguageMenuToggle } from '@/src/components/LanguageSwitcher';
 import { supabase } from '@/src/api/supabase';
 import { BranchMap } from '@/src/features/admin/components/BranchMap';
 import { logisticsService, RedistributionSuggestion } from '@/src/services/logisticsService';
+import * as ImagePicker from 'expo-image-picker';
+import { decode } from 'base64-arraybuffer';
 
 const { width } = Dimensions.get('window');
 
 export default function LibrarianDashboard() {
   const [isProfileMenuVisible, setIsProfileMenuVisible] = React.useState(false);
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const user = useAuthStore((state) => state.profile);
   const logout = useAuthStore((state) => state.logout);
+  const updateAvatar = useAuthStore((state) => state.updateAvatar);
   const router = useRouter();
   const { books, borrows } = useLibrary();
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+
+  const pickAvatar = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.7,
+        base64: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets[0]) {
+        const asset = result.assets[0];
+        setUploadingAvatar(true);
+
+        const fileName = `${user?.id || 'user'}_${Date.now()}.jpg`;
+        const filePath = `avatars/${fileName}`;
+
+        let body: any;
+        if (asset.base64) {
+          body = decode(asset.base64);
+        } else {
+          const response = await fetch(asset.uri);
+          body = await response.blob();
+        }
+
+        const { error: uploadError } = await supabase.storage
+          .from('avatars')
+          .upload(filePath, body, {
+            contentType: 'image/jpeg',
+            upsert: true
+          });
+
+        if (uploadError) throw uploadError;
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('avatars')
+          .getPublicUrl(filePath);
+
+        const { error: updateError } = await supabase
+          .from('profiles')
+          .update({ avatar_url: publicUrl })
+          .eq('id', user?.id);
+
+        if (updateError) throw updateError;
+
+        updateAvatar(publicUrl);
+        Alert.alert(t('common.success'), t('messages.avatar_updated'));
+      }
+    } catch (error: any) {
+      Alert.alert(t('common.error'), error.message || t('messages.upload_failed'));
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
   
   // Real data fetching
   const { data: allBooks } = books.list();
@@ -37,7 +96,7 @@ export default function LibrarianDashboard() {
   const fetchAiSuggestions = async () => {
     setIsAiLoading(true);
     try {
-      const recs = await logisticsService.getAIRedistributionSuggestions();
+      const recs = await logisticsService.getAIRedistributionSuggestions(i18n.language);
       setSuggestions(recs);
     } catch (err) {
       console.error(err);
@@ -168,6 +227,14 @@ export default function LibrarianDashboard() {
       iconColor: '#3A75F2',
       onPress: () => router.push('/(librarian)/broadcast')
     },
+    { 
+      title: t('audiobooks.title'), 
+      subtitle: t('audiobooks.subtitle'), 
+      icon: 'headset', 
+      iconBg: '#23153A',
+      iconColor: '#EC4899',
+      onPress: () => router.push('/(librarian)/audiobooks')
+    },
   ];
 
   return (
@@ -190,7 +257,7 @@ export default function LibrarianDashboard() {
             </TouchableOpacity>
             <TouchableOpacity 
               onPress={() => setIsProfileMenuVisible(true)}
-              style={styles.avatarBtn}
+              style={[styles.avatarBtn, { marginLeft: 12 }]}
             >
               {user?.avatarUrl ? (
                 <Image source={{ uri: user.avatarUrl }} style={styles.avatarImg} />
@@ -200,6 +267,7 @@ export default function LibrarianDashboard() {
                 </View>
               )}
             </TouchableOpacity>
+
           </View>
         </View>
 
@@ -218,7 +286,7 @@ export default function LibrarianDashboard() {
             <Animated.View entering={FadeInUp.duration(300)} style={styles.menuContent}>
               <View style={styles.menuHeader}>
                 <Text style={styles.menuUserTitle}>{user?.fullName || t('common.librarian')}</Text>
-                <Text style={styles.menuUserSub}>{t('common.staff_label')}</Text>
+                <Text style={styles.menuUserSub}>{user?.email} • {user?.role ? t(`roles.${user.role.toLowerCase()}`) : ''}</Text>
               </View>
               
               <TouchableOpacity 
@@ -435,6 +503,23 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 107, 107, 0.1)',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  avatarWrapper: {
+    position: "relative",
+    marginLeft: 12,
+  },
+  cameraOverlayBtn: {
+    position: "absolute",
+    bottom: -1,
+    right: -1,
+    backgroundColor: "#3A75F2",
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#0F121D",
   },
   avatarBtn: {
     width: 40,

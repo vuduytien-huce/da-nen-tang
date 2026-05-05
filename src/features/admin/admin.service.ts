@@ -148,8 +148,10 @@ export const adminService = {
     }
   },
 
-  async exportReportToPDF(data: MonthlyReportData) {
-    const html = `<html><body><h1>BiblioTech Report: ${data.month}</h1><p>Borrows: ${data.borrowCount}</p></body></html>`;
+  async exportReportToPDF(data: MonthlyReportData, lang: string = 'vi') {
+    const title = lang === 'vi' ? 'Báo cáo BiblioTech' : 'BiblioTech Report';
+    const borrowsLabel = lang === 'vi' ? 'Số lượt mượn' : 'Borrows';
+    const html = `<html><body><h1>${title}: ${data.month}</h1><p>${borrowsLabel}: ${data.borrowCount}</p></body></html>`;
     const { uri } = await Print.printToFileAsync({ html });
     if (Platform.OS === 'web') window.open(uri, '_blank');
     else await Sharing.shareAsync(uri);
@@ -162,12 +164,13 @@ export const adminService = {
     return data;
   },
 
-  async getAIRedistributionSuggestions(): Promise<RedistributionSuggestion[]> {
+  async getAIRedistributionSuggestions(lang: string = 'vi'): Promise<RedistributionSuggestion[]> {
     try {
       const { data: inventory } = await supabase.from('branch_inventory').select('*, branches(name), books(title)');
       const { data: heatmap } = await supabase.from('branch_borrow_heatmap').select('*');
       
-      const prompt = `Phân tích tồn kho: ${JSON.stringify(inventory?.slice(0, 50))} và Nhu cầu: ${JSON.stringify(heatmap?.slice(0, 50))}. Đề xuất 5 lượt điều chuyển dưới dạng JSON với các trường: isbn, fromBranchId, toBranchId, quantity, reason, priority. Hãy viết lý do (reason) bằng tiếng Việt.`;
+      const langName = lang === 'vi' ? 'tiếng Việt' : 'English';
+      const prompt = `Inventory analysis: ${JSON.stringify(inventory?.slice(0, 50))} and Demand: ${JSON.stringify(heatmap?.slice(0, 50))}. Suggest 5 transfers in JSON with fields: isbn, fromBranchId, toBranchId, quantity, reason, priority. Please write the reason in ${langName}.`;
       
       return await ai.analyzeLogistics(prompt);
     } catch (e) { return []; }

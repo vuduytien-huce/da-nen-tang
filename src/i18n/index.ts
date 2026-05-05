@@ -21,7 +21,7 @@ const languageDetector: any = {
       
       const locales = Localization.getLocales();
       const deviceLanguage = (locales && locales.length > 0) ? locales[0].languageCode : 'en';
-      return callback(deviceLanguage === 'vi' ? 'vi' : 'en');
+      return callback(deviceLanguage && deviceLanguage.startsWith('vi') ? 'vi' : 'en');
     } catch (error) {
       console.warn('Error detecting language:', error);
       return callback('en');

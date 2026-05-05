@@ -28,23 +28,61 @@ export const payment = {
 
   // Wallet logic moved from membersService
   addToAppleWallet: async (profile: any, cardImageUri: string) => {
-    if (Platform.OS !== 'ios') return Alert.alert('Thông báo', 'Chỉ khả dụng trên iOS');
     haptics.medium();
+    if (Platform.OS === 'web') {
+      try {
+        const link = document.createElement('a');
+        link.href = cardImageUri;
+        link.download = `bibliotech_apple_pass_${profile?.id?.substring(0, 8) || 'pass'}.png`;
+        link.click();
+        Alert.alert('Thành công', 'Đã lưu thẻ thành viên vào thiết bị (Apple Pass)!');
+        return true;
+      } catch (e) {
+        Alert.alert('Thông báo', 'Không thể tải xuống trên trình duyệt');
+        return false;
+      }
+    }
     try {
       if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(cardImageUri, { UTI: 'com.apple.pkpass', mimeType: 'application/vnd.apple.pkpass' });
+        await Sharing.shareAsync(cardImageUri, { dialogTitle: 'Thêm thẻ vào Apple Wallet' });
         return true;
+      } else {
+        Alert.alert('Thông báo', 'Tính năng chia sẻ không khả dụng trên thiết bị này');
+        return false;
       }
-    } catch (e) { return false; }
+    } catch (e) {
+      Alert.alert('Lỗi', 'Không thể lưu thẻ');
+      return false;
+    }
   },
 
   addToGoogleWallet: async (profile: any, cardImageUri: string) => {
     haptics.medium();
+    if (Platform.OS === 'web') {
+      try {
+        const link = document.createElement('a');
+        link.href = cardImageUri;
+        link.download = `bibliotech_google_pass_${profile?.id?.substring(0, 8) || 'pass'}.png`;
+        link.click();
+        Alert.alert('Thành công', 'Đã lưu thẻ thành viên vào thiết bị (Google Pass)!');
+        return true;
+      } catch (e) {
+        Alert.alert('Thông báo', 'Không thể tải xuống trên trình duyệt');
+        return false;
+      }
+    }
     try {
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(cardImageUri, { dialogTitle: 'Lưu thẻ vào Google Wallet' });
         return true;
+      } else {
+        Alert.alert('Thông báo', 'Tính năng chia sẻ không khả dụng trên thiết bị này');
+        return false;
       }
-    } catch (e) { return false; }
+    } catch (e) {
+      Alert.alert('Lỗi', 'Không thể lưu thẻ');
+      return false;
+    }
   }
 };
+

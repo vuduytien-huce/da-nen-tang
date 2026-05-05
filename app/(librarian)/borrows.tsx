@@ -64,7 +64,7 @@ export default function LibrarianBorrows() {
     };
 
     if (Platform.OS === 'web') {
-      const reason = window.prompt(t('librarian.reject_reason_label') || 'Lý do từ chối:');
+      const reason = window.prompt(t('librarian.reject_reason_label'));
       if (reason !== null) {
         runReject(reason);
       }
@@ -77,7 +77,7 @@ export default function LibrarianBorrows() {
         }
       ]);
     } else {
-      const reason = window.prompt ? window.prompt(t('librarian.reject_reason_label') || 'Lý do từ chối:') : null;
+      const reason = window.prompt ? window.prompt(t('librarian.reject_reason_label')) : null;
       if (reason !== null) {
         runReject(reason);
       }
@@ -124,7 +124,7 @@ export default function LibrarianBorrows() {
             )}
           </View>
           <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
-            <Text style={styles.statusText}>{item.status}</Text>
+            <Text style={styles.statusText}>{t(`common.${item.status.toLowerCase()}`)}</Text>
           </View>
         </View>
         

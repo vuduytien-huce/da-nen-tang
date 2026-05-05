@@ -16,6 +16,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { ai } from '../../core/ai';
+import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../store/useAuthStore';
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -29,16 +30,29 @@ interface Message {
 }
 
 export const BiblioAI: React.FC = () => {
+  const { t, i18n } = useTranslation();
   const [visible, setVisible] = useState(false);
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
-      text: 'Xin chào! Tôi là BiblioAI. Tôi có thể giúp gì cho bạn hôm nay?',
+      text: t('ai.welcome_msg', 'Xin chào! Tôi là BiblioAI. Tôi có thể giúp gì cho hành trình đọc sách của bạn hôm nay?'),
       sender: 'ai',
       timestamp: new Date(),
     }
   ]);
+
+  useEffect(() => {
+    setMessages([
+      {
+        id: '1',
+        text: t('ai.welcome_msg', 'Xin chào! Tôi là BiblioAI. Tôi có thể giúp gì cho hành trình đọc sách của bạn hôm nay?'),
+        sender: 'ai',
+        timestamp: new Date()
+      }
+    ]);
+  }, [i18n.language]);
+
   const [loading, setLoading] = useState(false);
   const profile = useAuthStore((state) => state.profile);
   
@@ -107,7 +121,7 @@ export const BiblioAI: React.FC = () => {
           </LinearGradient>
         </TouchableOpacity>
         <View style={styles.fabLabelContainer}>
-           <Text style={styles.fabLabel}>Hỏi Trợ lý</Text>
+           <Text style={styles.fabLabel}>{t('ai.ask_assistant', 'Hỏi Trợ lý')}</Text>
         </View>
       </Animated.View>
 
@@ -130,8 +144,8 @@ export const BiblioAI: React.FC = () => {
                   <Ionicons name="sparkles" size={16} color="#FFFFFF" />
                 </View>
                 <View>
-                  <Text style={styles.headerTitle}>BiblioAI Assistant</Text>
-                  <Text style={styles.headerStatus}>Trực tuyến • Sẵn sàng hỗ trợ</Text>
+                  <Text style={styles.headerTitle}>{t('ai.assistant_title', 'BiblioAI Assistant')}</Text>
+                  <Text style={styles.headerStatus}>{t('ai.online', 'Online')} • {t('ai.ready_to_help', 'Ready to help')}</Text>
                 </View>
               </View>
               <TouchableOpacity onPress={() => setVisible(false)} style={styles.closeBtn}>
@@ -176,7 +190,7 @@ export const BiblioAI: React.FC = () => {
             <View style={styles.inputArea}>
               <TextInput
                 style={styles.input}
-                placeholder="Nhập câu hỏi của bạn..."
+                placeholder={t('ai.placeholder', 'Nhập câu hỏi cho thủ thư...')}
                 placeholderTextColor="#5A5F7A"
                 value={input}
                 onChangeText={setInput}

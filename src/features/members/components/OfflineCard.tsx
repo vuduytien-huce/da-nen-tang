@@ -4,6 +4,7 @@ import QRCode from 'react-native-qrcode-svg';
 import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import ViewShot, { captureRef } from 'react-native-view-shot';
+import { useTranslation } from 'react-i18next';
 import { Profile } from '../../../store/useAuthStore';
 import { payment } from '../../../core/payment';
 import { haptics } from '../../../core/haptics';
@@ -17,10 +18,20 @@ interface OfflineCardProps {
 }
 
 export const OfflineCard: React.FC<OfflineCardProps> = ({ visible, onClose, profile }) => {
+    const { t } = useTranslation();
     const viewShotRef = useRef<any>(null);
     const [isAdding, setIsAdding] = useState<'apple' | 'google' | null>(null);
 
     if (!profile) return null;
+
+    const hmacSig = payment.signPaymentRequest({ id: profile.id });
+    const vietqrValue = payment.generateVietQR(
+      'MB', 
+      '123456789', 
+      0, 
+      `MEMBER_${profile.id.substring(0, 8)}_${hmacSig.substring(0, 8)}`,
+      profile.fullName || 'Valued Reader'
+    );
 
     const handleAddToWallet = async (type: 'apple' | 'google') => {
       try {
@@ -63,7 +74,7 @@ export const OfflineCard: React.FC<OfflineCardProps> = ({ visible, onClose, prof
                 <View style={styles.cardHeader}>
                   <View>
                     <Text style={styles.brand}>BIBLIOTECH</Text>
-                    <Text style={styles.cardType}>DIGITAL MEMBERSHIP</Text>
+                    <Text style={styles.cardType}>{t('member.digital_pass')?.toUpperCase() || 'DIGITAL MEMBERSHIP'}</Text>
                   </View>
                   <Ionicons name="library" size={24} color="#3A75F2" />
                 </View>
@@ -71,64 +82,33 @@ export const OfflineCard: React.FC<OfflineCardProps> = ({ visible, onClose, prof
                 <View style={styles.qrContainer}>
                   <View style={styles.qrWrapper}>
                     <QRCode
-                      value={profile.id}
+                      value={vietqrValue}
                       size={180}
                       color="#FFFFFF"
                       backgroundColor="transparent"
                     />
                   </View>
-                  <Text style={styles.userId}>{profile.id.substring(0, 8).toUpperCase()}</Text>
+                  <Text style={styles.userId}>{`${profile.id.substring(0, 8).toUpperCase()} • HMAC: ${hmacSig.substring(0, 8).toUpperCase()}`}</Text>
                 </View>
 
                 <View style={styles.cardFooter}>
                   <View>
-                    <Text style={styles.label}>MEMBER NAME</Text>
-                    <Text style={styles.value}>{profile.fullName || 'Valued Reader'}</Text>
+                    <Text style={styles.label}>{t('member.member_name')?.toUpperCase() || 'MEMBER NAME'}</Text>
+                    <Text style={styles.value}>{profile.fullName || t('member.valued_reader')}</Text>
                   </View>
                   <View style={styles.roleBadge}>
-                    <Text style={styles.roleText}>{profile.role}</Text>
+                    <Text style={styles.roleText}>
+                      {profile.role ? t(`roles.${profile.role.toLowerCase()}`)?.toUpperCase() : ''}
+                    </Text>
                   </View>
                 </View>
 
                 <View style={styles.offlineIndicator}>
                   <Ionicons name="cloud-offline" size={14} color="rgba(255,255,255,0.4)" />
-                  <Text style={styles.offlineText}>OFFLINE ACCESS ENABLED</Text>
+                  <Text style={styles.offlineText}>{t('member.offline_access')?.toUpperCase() || 'OFFLINE ACCESS ENABLED'}</Text>
                 </View>
               </LinearGradient>
             </ViewShot>
-
-            {/* Wallet Buttons */}
-            <View style={styles.walletButtons}>
-              <TouchableOpacity 
-                style={[styles.walletBtn, styles.appleWalletBtn]}
-                onPress={() => handleAddToWallet('apple')}
-                disabled={!!isAdding}
-              >
-                {isAdding === 'apple' ? (
-                  <ActivityIndicator color="white" />
-                ) : (
-                  <>
-                    <Ionicons name="logo-apple" size={18} color="white" />
-                    <Text style={styles.walletBtnText}>Add to Apple Wallet</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-
-              <TouchableOpacity 
-                style={[styles.walletBtn, styles.googleWalletBtn]}
-                onPress={() => handleAddToWallet('google')}
-                disabled={!!isAdding}
-              >
-                {isAdding === 'google' ? (
-                  <ActivityIndicator color="white" />
-                ) : (
-                  <>
-                    <FontAwesome5 name="google-pay" size={18} color="white" />
-                    <Text style={styles.walletBtnText}>Add to Google Wallet</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-            </View>
 
           <TouchableOpacity style={styles.closeBtn} onPress={onClose}>
             <Ionicons name="close-circle" size={48} color="#FFFFFF" />
@@ -142,7 +122,7 @@ export const OfflineCard: React.FC<OfflineCardProps> = ({ visible, onClose, prof
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.85)',
+    backgroundColor: '#0B0F1A',
     justifyContent: 'center',
     alignItems: 'center',
   },

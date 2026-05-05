@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, Dimensions, ScrollView } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 interface HeatmapData {
   day: string;
@@ -12,9 +13,13 @@ interface AnalyticsHeatmapProps {
 
 const { width } = Dimensions.get('window');
 const BOX_SIZE = (width - 60) / 7;
-const DAYS = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
 
 export const AnalyticsHeatmap: React.FC<AnalyticsHeatmapProps> = ({ data }) => {
+  const { t, i18n } = useTranslation();
+  const DAYS = i18n.language === 'en' 
+    ? ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+    : ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+
   // Simple logic to map data to a 7x8 grid (last 8 weeks)
   const renderBox = (count: number) => {
     let opacity = 0.05;
@@ -55,11 +60,11 @@ export const AnalyticsHeatmap: React.FC<AnalyticsHeatmapProps> = ({ data }) => {
         })}
       </View>
       <View style={styles.legend}>
-        <Text style={styles.legendText}>Ít</Text>
+        <Text style={styles.legendText}>{t('analytics.less', 'Ít')}</Text>
         {[0.05, 0.2, 0.4, 0.7, 1].map((op, i) => (
           <View key={i} style={[styles.legendBox, { backgroundColor: `rgba(58, 117, 242, ${op})` }]} />
         ))}
-        <Text style={styles.legendText}>Nhiều</Text>
+        <Text style={styles.legendText}>{t('analytics.more', 'Nhiều')}</Text>
       </View>
     </View>
   );
